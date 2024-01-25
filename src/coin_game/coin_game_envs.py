@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from coin_game.coin_game_ppo_agent import PPO, Memory
+from coin_game_ppo_agent import PPO, Memory
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 

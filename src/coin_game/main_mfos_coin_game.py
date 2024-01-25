@@ -2,7 +2,7 @@ import torch
 import os
 import json
 from coin_game_envs import CoinGamePPO
-from coin_game.coin_game_mfos_agent import MemoryMFOS, PPOMFOS
+from coin_game_mfos_agent import MemoryMFOS, PPOMFOS
 import argparse
 
 
@@ -89,12 +89,14 @@ if __name__ == "__main__":
         rew_means.append(
             {
                 "episode": i_episode,
-                "rew": running_reward.mean().item(),
-                "opp_rew": opp_running_reward.mean().item(),
-                "p1_opp": p1_num_opp.float().mean().item(),
-                "p2_opp": p2_num_opp.float().mean().item(),
-                "p1_self": p1_num_self.float().mean().item(),
-                "p2_self": p2_num_self.float().mean().item(),
+                "rew_0": running_reward.mean().item(),
+                "rew_1": opp_running_reward.mean().item(),
+                "other_coin_count_0": p1_num_opp.float().mean().item(),
+                "other_coin_count_1": p2_num_opp.float().mean().item(),
+                "own_coin_count_0": p1_num_self.float().mean().item(),
+                "own_coin_count_1": p2_num_self.float().mean().item(),
+                "total_coin_count_0": p1_num_self.float().mean().item() + p1_num_opp.float().mean().item(),
+                "total_coin_count_1": p2_num_self.float().mean().item() + p2_num_opp.float().mean().item(),
             }
         )
         print(rew_means[-1])
