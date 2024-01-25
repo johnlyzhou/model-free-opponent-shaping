@@ -30,8 +30,8 @@ if __name__ == "__main__":
     eps_clip = 0.2  # clip parameter for PPO
     use_gae = False
 
-    inner_ep_len = 16
-    num_steps = 256  # , 500
+    inner_ep_len = 32
+    outer_ep_len = 16
 
     do_sum = False
 
@@ -58,51 +58,52 @@ if __name__ == "__main__":
     # env
     env = CoinGamePPO(batch_size, inner_ep_len)
 
-    # training loop
+    # Meta episode loop
     for i_episode in range(1, max_episodes + 1):
-        memory.clear_memory()
-        state = env.reset()
-        running_reward = 0
-        opp_running_reward = 0
-        p1_num_opp, p2_num_opp, p1_num_self, p2_num_self = 0, 0, 0, 0
-        for t in range(num_steps):
-            # Running policy_old:
-            if t % inner_ep_len == 0:
-                ppo.policy_old.reset(memory, t == 0)
-            with torch.no_grad():
-                action = ppo.policy_old.act(state.detach())
-            state, reward, done, info, info_2 = env.step(action.detach())
-            running_reward += reward.detach()
-            opp_running_reward += info.detach()
-            memory.rewards.append(reward.detach())
-            if info_2 is not None:
-                p1_num_opp += info_2[2]
-                p2_num_opp += info_2[1]
-                p1_num_self += info_2[3]
-                p2_num_self += info_2[0]
+        # Meta step loop, each meta_t is an episode
+        for meta_t in range(outer_ep_len):
+            memory.clear_memory()
+            state = env.reset()
+            running_reward = 0
+            opp_running_reward = 0
+            p1_num_opp, p2_num_opp, p1_num_self, p2_num_self = 0, 0, 0, 0
+            ppo.policy_old.reset(memory, meta_t == 0)
 
-        ppo.policy_old.reset(memory)
-        ppo.update(memory)
+            # Inner game step loop
+            for t in range(inner_ep_len):
+                with torch.no_grad():
+                    action = ppo.policy_old.act(state.detach())
+                state, reward, done, info, info_2 = env.step(action.detach())
+                running_reward += reward.detach()
+                opp_running_reward += info.detach()
+                memory.rewards.append(reward.detach())
+                if info_2 is not None:
+                    p1_num_opp += info_2[2]
+                    p2_num_opp += info_2[1]
+                    p1_num_self += info_2[3]
+                    p2_num_self += info_2[0]
 
-        print("=" * 10)
-
-        rew_means.append(
-            {
-                "episode": i_episode,
-                "rew_0": running_reward.mean().item(),
-                "rew_1": opp_running_reward.mean().item(),
-                "other_coin_count_0": p1_num_opp.float().mean().item(),
-                "other_coin_count_1": p2_num_opp.float().mean().item(),
-                "own_coin_count_0": p1_num_self.float().mean().item(),
-                "own_coin_count_1": p2_num_self.float().mean().item(),
-                "total_coin_count_0": p1_num_self.float().mean().item() + p1_num_opp.float().mean().item(),
-                "total_coin_count_1": p2_num_self.float().mean().item() + p2_num_opp.float().mean().item(),
-            }
-        )
-        print(rew_means[-1])
+            rew_means.append(
+                {
+                    "episode": i_episode * outer_ep_len + meta_t,
+                    "rew_0": running_reward.mean().item(),
+                    "rew_1": opp_running_reward.mean().item(),
+                    "other_coin_count_0": p1_num_opp.float().mean().item(),
+                    "other_coin_count_1": p2_num_opp.float().mean().item(),
+                    "own_coin_count_0": p1_num_self.float().mean().item(),
+                    "own_coin_count_1": p2_num_self.float().mean().item(),
+                    "total_coin_count_0": p1_num_self.float().mean().item() + p1_num_opp.float().mean().item(),
+                    "total_coin_count_1": p2_num_self.float().mean().item() + p2_num_opp.float().mean().item(),
+                }
+            )
+            print(rew_means[-1])
 
         if i_episode % save_freq == 0:
             ppo.save(os.path.join(name, f"{i_episode}.pth"))
             with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
                 json.dump(rew_means, f)
             print(f"SAVING! {i_episode}")
+
+        ppo.policy_old.reset(memory)
+        ppo.update(memory)
+        print("=" * 10)
