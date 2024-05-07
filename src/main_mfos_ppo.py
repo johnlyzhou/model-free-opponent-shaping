@@ -108,8 +108,8 @@ if __name__ == "__main__":
             }
         )
 
-        logs.append({f"player_{0}": {"last_reward": last_reward, "avg_rew": running_reward.mean() / num_steps},
-                     f"player_{1}": {"last_reward": last_opp_reward, "avg_rew": running_opp_reward.mean() / num_steps}})
+        logs.append({f"player_{0}": {"last_reward": last_reward, "avg_rew": running_reward.mean().item() / num_steps},
+                     f"player_{1}": {"last_reward": last_opp_reward, "avg_rew": running_opp_reward.mean().item() / num_steps}})
         print(logs[-1])
 
         if i_episode % save_freq == 0:
