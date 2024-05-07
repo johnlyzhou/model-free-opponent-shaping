@@ -72,8 +72,8 @@ if __name__ == "__main__":
     for i_episode in tqdm(range(1, max_episodes + 1)):
         state = env.reset()
 
-        running_reward = torch.zeros(batch_size)  #.cuda()
-        running_opp_reward = torch.zeros(batch_size)  #.cuda()
+        running_reward = torch.zeros(batch_size).cuda()
+        running_opp_reward = torch.zeros(batch_size).cuda()
 
         last_reward = 0
         last_opp_reward = 0
@@ -88,8 +88,8 @@ if __name__ == "__main__":
             memory.rewards.append(reward)
             running_reward += reward.squeeze(-1)
             running_opp_reward += info.squeeze(-1)
-            last_reward = reward.squeeze(-1).mean()
-            last_opp_reward = info.squeeze(-1).mean()
+            last_reward = reward.squeeze(-1).mean().item()
+            last_opp_reward = info.squeeze(-1).mean().item()
             # print(last_reward.shape, last_opp_reward.shape)
 
         ppo.update(memory)
