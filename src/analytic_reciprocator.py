@@ -41,7 +41,7 @@ class AnalyticReciprocator:
         # Remove initial state from policy
         p0 = torch.sigmoid(th[0][:, 1:]).view(self.bsz, 4, 1)
         # Permute agent 1's egocentric policy (i.e. its state is flipped) to match agent 0's perspective
-        p1 = torch.sigmoid(th[1][:, torch.LongTensor([1, 3, 2, 4], device=self.device)]).view(self.bsz, 4, 1)
+        p1 = torch.sigmoid(th[1][:, torch.LongTensor([1, 3, 2, 4]).to(self.device)]).view(self.bsz, 4, 1)
 
         # TODO: Compute initial state vector
         # Initial opening state combos
@@ -49,19 +49,19 @@ class AnalyticReciprocator:
                         p0_init * (1 - p1_init),
                         (1 - p0_init) * p1_init,
                         (1 - p0_init) * (1 - p1_init)], dim=-1)  # (bsz, 4)
-        S3 = torch.zeros(self.bsz, 4, 4, 4, device=self.device)
+        S3 = torch.zeros(self.bsz, 4, 4, 4).to(self.device)
 
         # Probability of transitioning to each state CD from the current state AB - this is independent since memory-1
         #  equal to p(a_t | s_t), since a_t = s_t+1
         T1 = torch.cat([p0 * p1, p0 * (1 - p1), (1 - p0) * p1, (1 - p0) * (1 - p1)], dim=-1)  # (bsz, 4, 4)
-        S2 = torch.zeros(self.bsz, 4, 4, device=self.device)
+        S2 = torch.zeros(self.bsz, 4, 4).to(self.device)
 
         for s_pre in range(4):
             for s in range(4):
                 S2[:, s_pre, s] = S1[:, s_pre] * T1[:, s_pre, s]
 
         # Probability of transitioning from compound state ABCDEF to GHIJKL (s_pre, s, a) to (s, a, a_next)
-        T2 = torch.zeros(self.bsz, 4, 4, 4, 4, 4, 4, device=self.device)
+        T2 = torch.zeros(self.bsz, 4, 4, 4, 4, 4, 4).to(self.device)
         for s_pre in range(4):
             for s in range(4):
                 for a in range(4):
@@ -99,7 +99,7 @@ class AnalyticReciprocator:
         self.voi_on_other[:, s, a] = opp_expected_rew - curr_rew
 
     def init_full_rewards(self):
-        self.full_rewards = torch.zeros(self.bsz, 4, 4, 4, device=self.device)
+        self.full_rewards = torch.zeros(self.bsz, 4, 4, 4).to(self.device)
         for s_pre in range(4):
             for s in range(4):
                 for a in range(4):
