@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--game", type=str, required=True)
 parser.add_argument("--opponent", type=str, required=True)
 parser.add_argument("--entropy", type=float, default=0.01)
-parser.add_argument("--exp-name", type=str, default="")
+parser.add_argument("--exp-name", type=str, default="test")
 parser.add_argument("--checkpoint", type=str, default="")
 parser.add_argument("--mamaml-id", type=int, default=0)
 args = parser.parse_args()
@@ -33,14 +33,14 @@ if __name__ == "__main__":
     random_seed = None
     num_steps = 100
 
-    save_freq = 250
+    save_freq = 100
     name = args.exp_name
 
     print(f"RUNNING NAME: {name}")
-    # if not os.path.isdir(name):
-    #     os.mkdir(name)
-    #     with open(os.path.join(name, "commandline_args.txt"), "w") as f:
-    #         json.dump(args.__dict__, f, indent=2)
+    if not os.path.isdir(name):
+        os.mkdir(name)
+        with open(os.path.join(name, "commandline_args.txt"), "w") as f:
+            json.dump(args.__dict__, f, indent=2)
 
     #############################################
 
@@ -117,15 +117,15 @@ if __name__ == "__main__":
             with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
                 json.dump(logs, f)
 
-    #     print(f"opponent loss: {-running_opp_reward.mean() / num_steps}", flush=True)
-    #
-    #     if i_episode % save_freq == 0:
-    #         ppo.save(os.path.join(name, f"{i_episode}.pth"))
-    #         with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
-    #             json.dump(rew_means, f)
-    #         print(f"SAVING! {i_episode}")
-    #
-    # ppo.save(os.path.join(name, f"{i_episode}.pth"))
-    # with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
-    #     json.dump(rew_means, f)
-    # print(f"SAVING! {i_episode}")
+        print(f"opponent loss: {-running_opp_reward.mean() / num_steps}", flush=True)
+
+        if i_episode % save_freq == 0:
+            ppo.save(os.path.join(name, f"{i_episode}.pth"))
+            with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
+                json.dump(rew_means, f)
+            print(f"SAVING! {i_episode}")
+
+    ppo.save(os.path.join(name, f"{i_episode}.pth"))
+    with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
+        json.dump(rew_means, f)
+    print(f"SAVING! {i_episode}")
