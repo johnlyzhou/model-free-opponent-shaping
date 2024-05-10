@@ -1,5 +1,5 @@
 import torch
-
+torch.autograd.set_detect_anomaly(True)
 
 def idx_to_state(idx: int or torch.Tensor):
     return torch.tensor([idx % 2, idx // 2], dtype=torch.long)
@@ -72,9 +72,8 @@ class AnalyticReciprocator:
 
         S3 = S3.view(self.bsz, -1)  # (bsz, 64)
         T2 = T2.view(self.bsz, 64, 64)
-        print(self.full_rewards.max(), self.full_rewards.min())
         M = torch.matmul(S3.unsqueeze(1), torch.inverse(torch.eye(64).to(self.device) - self.gamma * T2))
-        L_rr = -torch.matmul(M, torch.reshape(self.full_rewards, (self.bsz, 64, 1)))
+        L_rr = -torch.matmul(M, torch.reshape(self.full_rewards, (self.bsz, 64, 1)).detach())
         return L_rr.squeeze(-1)
 
     def init_rr_components(self, s_pre: int, s: int, a: int):
@@ -86,25 +85,37 @@ class AnalyticReciprocator:
         """
         s_state = idx_to_state(s)
         last_rew = self.extrinsic_rewards[s_state[0], s_state[1]]  # Actual reward received at t-1 (since s_t is a_t-1)
-        baseline_probs = self.opponent_baseline_policy[:, s_pre]  # (bsz,) p(cooperate | s_pre/t-1)
+        baseline_probs = torch.sigmoid(self.opponent_baseline_policy[:, s_pre])  # (bsz,) p(cooperate | s_pre/t-1)
         # P(C) * r(rc's actual action, C) + P(D) * r(rc's actual action, D) at t-1
         last_expected_rew = (self.extrinsic_rewards[s_state[0], 0] * baseline_probs +
                              self.extrinsic_rewards[s_state[0], 1] * (1 - baseline_probs))
+        # print("INIT")
+        # print(last_expected_rew.max(), last_expected_rew.min())
         self.grudge[:, s_pre, s] = last_expected_rew - last_rew  # essentially just VoI on self for 1-step memory
 
         a_state = idx_to_state(a)
         curr_rew = self.extrinsic_rewards[a_state[0], a_state[1]]  # Extrinsic rew at current time t from actions a_t
-        baseline_probs = self.own_baseline_policy[:, s]  # (bsz,)
-        opp_expected_rew = (self.extrinsic_rewards[a_state[1], 0] * baseline_probs +
-                            self.extrinsic_rewards[a_state[1], 1] * (1 - baseline_probs))
+        own_baseline_probs = torch.sigmoid(self.own_baseline_policy[:, s])  # (bsz,)
+        # print("PROBS")
+        # print(own_baseline_probs.max(), own_baseline_probs.min())
+        # print(own_baseline_probs.shape)
+        opp_expected_rew = (self.extrinsic_rewards[a_state[1], 0] * own_baseline_probs +
+                            self.extrinsic_rewards[a_state[1], 1] * (1 - own_baseline_probs))
+        # print("OPP")
+        # print(opp_expected_rew.max(), opp_expected_rew.min())
         self.voi_on_other[:, s, a] = opp_expected_rew - curr_rew
 
     def init_full_rewards(self):
-        self.full_rewards = torch.zeros(self.bsz, 4, 4, 4).to(self.device)
         for s_pre in range(4):
             for s in range(4):
                 for a in range(4):
                     self.init_rr_components(s_pre, s, a)
+        # print("GRUDGE")
+        # print(self.grudge.max(), self.grudge.min())
+        # print(self.voi_on_other.max(), self.voi_on_other.min())
+        for s_pre in range(4):
+            for s in range(4):
+                for a in range(4):
                     a_state = idx_to_state(a)
                     self.full_rewards[:, s_pre, s, a] = self.grudge[:, s_pre, s] * self.voi_on_other[:, s, a] * self.rr_weight
                     self.full_rewards[:, s_pre, s, a] += self.extrinsic_rewards[a_state[0], a_state[1]]
