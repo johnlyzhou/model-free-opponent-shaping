@@ -9,8 +9,8 @@ class AnalyticReciprocator:
     def __init__(self, own_baseline_policy: torch.Tensor, opponent_baseline_policy: torch.Tensor, rr_weight: float,
                  gamma: float, bsz: int, device: torch.device):
         """0 is cooperate, 1 is defect"""
-        self.own_baseline_policy = own_baseline_policy  # (bsz, 5)
-        self.opponent_baseline_policy = opponent_baseline_policy  # (bsz, 5)
+        self.own_baseline_policy = torch.sigmoid(own_baseline_policy)  # (bsz, 5)
+        self.opponent_baseline_policy = torch.sigmoid(opponent_baseline_policy)  # (bsz, 5)
         self.rr_weight = rr_weight
         self.gamma = gamma
         self.bsz = bsz
@@ -26,9 +26,20 @@ class AnalyticReciprocator:
         self.init_full_rewards()
 
     def update_baseline(self, th, tau: float = 1.0):
-        self.own_baseline_policy = th[0] * tau + self.own_baseline_policy * (1. - tau)
-        self.opponent_baseline_policy = (th[1] * tau + self.opponent_baseline_policy) * (1. - tau)
+        self.own_baseline_policy = torch.sigmoid(th[0]) * tau + self.own_baseline_policy * (1. - tau)
+        self.opponent_baseline_policy = torch.sigmoid(th[1]) * tau + self.opponent_baseline_policy * (1. - tau)
         self.init_full_rewards()
+        print(torch.sigmoid(th[0][0]))
+        print(torch.sigmoid(th[1][0]))
+        # print("RR policy")
+        # print(torch.sigmoid(torch.max(th[0], dim=0)[0]), torch.sigmoid(torch.max(th[0], dim=0)[0]))
+        # print(torch.sigmoid(torch.max(th[0], dim=0)[0]), torch.sigmoid(torch.max(th[0], dim=0)[0]))
+        # print("MFOS policy")
+        # print(torch.sigmoid(torch.max(th[1], dim=0)[0]), torch.sigmoid(torch.max(th[1], dim=0)[0]))
+        # print(torch.sigmoid(torch.min(th[1], dim=0)[0]), torch.sigmoid(torch.min(th[1], dim=0)[0]))
+        print("RR COMPONENTS")
+        print(self.grudge[0])
+        print(self.voi_on_other[0])
 
     def Ls(self, th):
         """
@@ -85,7 +96,7 @@ class AnalyticReciprocator:
         """
         s_state = idx_to_state(s)
         last_rew = self.extrinsic_rewards[s_state[0], s_state[1]]  # Actual reward received at t-1 (since s_t is a_t-1)
-        baseline_probs = torch.sigmoid(self.opponent_baseline_policy[:, s_pre])  # (bsz,) p(cooperate | s_pre/t-1)
+        baseline_probs = self.opponent_baseline_policy[:, s_pre]  # (bsz,) p(cooperate | s_pre/t-1)
         # P(C) * r(rc's actual action, C) + P(D) * r(rc's actual action, D) at t-1
         last_expected_rew = (self.extrinsic_rewards[s_state[0], 0] * baseline_probs +
                              self.extrinsic_rewards[s_state[0], 1] * (1 - baseline_probs))
@@ -95,7 +106,7 @@ class AnalyticReciprocator:
 
         a_state = idx_to_state(a)
         curr_rew = self.extrinsic_rewards[a_state[0], a_state[1]]  # Extrinsic rew at current time t from actions a_t
-        own_baseline_probs = torch.sigmoid(self.own_baseline_policy[:, s])  # (bsz,)
+        own_baseline_probs = self.own_baseline_policy[:, s]  # (bsz,)
         # print("PROBS")
         # print(own_baseline_probs.max(), own_baseline_probs.min())
         # print(own_baseline_probs.shape)

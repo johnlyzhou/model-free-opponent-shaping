@@ -79,7 +79,7 @@ if __name__ == "__main__":
         last_reward = 0
         last_opp_reward = 0
 
-        for t in range(num_steps):
+        for t in tqdm(range(num_steps)):
 
             # Running policy_old:
             action = ppo.policy_old.act(state, memory)
