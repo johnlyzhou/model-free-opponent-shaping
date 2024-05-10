@@ -1,4 +1,5 @@
 import torch
+from analytic_reciprocator import AnalyticReciprocator
 import os.path as osp
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -64,7 +65,7 @@ def compute_best_response(outer_th_ba):
     lr = 1
 
     ipd_batched_env = ipd_batched(batch_size, gamma_inner=0.96)[1]
-    inner_th_ba = torch.nn.init.normal_(torch.empty((batch_size, 5), requires_grad=True), std=std).cuda()
+    inner_th_ba = torch.nn.init.normal_(torch.empty((batch_size, 5), requires_grad=True), std=std).to(device)
     for i in range(num_steps):
         th_ba = [inner_th_ba, outer_th_ba.detach()]
         l1, l2, M = ipd_batched_env(th_ba)
@@ -124,7 +125,7 @@ def generate_mamaml(b, d, inner_env, game, inner_lr=1):
 
     for ep in range(1000):
         agent = mamaml.clone().repeat(b, 1)
-        opp = torch.nn.init.normal_(torch.empty((b, d), requires_grad=True), std=1.0).cuda()
+        opp = torch.nn.init.normal_(torch.empty((b, d), requires_grad=True), std=1.0).to(device)
         total_agent_loss = 0
         total_opp_loss = 0
         for step in range(100):
@@ -179,6 +180,14 @@ class MetaGames:
             f = f"data/mamaml_{self.game}_{mmapg_id}.th"
             assert osp.exists(f), "Generate the MAMAML weights first"
             self.init_th_ba = torch.load(f)
+        elif self.opponent == "Reciprocator":
+            self.analytic_rr = AnalyticReciprocator(torch.ones((b, 5)) / 5,
+                                                    torch.ones((b, 5)) / 5,
+                                                    rr_weight=5.0,
+                                                    gamma=0.96,
+                                                    bsz=b,
+                                                    device=device)
+            self.init_th_ba = None
         else:
             self.init_th_ba = None
 
@@ -212,7 +221,17 @@ class MetaGames:
             grad = grad_L[0][0] - self.lr * get_gradient(term, th_ba[0])
             with torch.no_grad():
                 self.inner_th_ba -= grad * self.lr
+        elif self.opponent == "Reciprocator":
+            th_ba = [self.inner_th_ba, outer_th_ba.detach()]
+            l1, l2, M = self.game_batched(th_ba)
+            L_rr = self.analytic_rr.Ls(th_ba)
+            grad = get_gradient(L_rr.sum(), self.inner_th_ba)
+            with torch.no_grad():
+                self.inner_th_ba -= grad * self.lr
+            self.analytic_rr.update_baseline(th_ba, tau=1.0)
         elif self.opponent == "BR":
+            # Best response agent, is allowed to train for num_steps to get to a policy before the playing the game vs.
+            #  MFOS's outputted policy
             num_steps = 1000
             inner_th_ba = torch.nn.init.normal_(torch.empty((self.b, 5), requires_grad=True), std=self.std).to(device)
             for i in range(num_steps):

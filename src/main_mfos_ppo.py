@@ -18,6 +18,7 @@ args = parser.parse_args()
 
 
 if __name__ == "__main__":
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     ############################################
     K_epochs = 4  # update policy for K epochs
 
@@ -72,8 +73,8 @@ if __name__ == "__main__":
     for i_episode in tqdm(range(1, max_episodes + 1)):
         state = env.reset()
 
-        running_reward = torch.zeros(batch_size).cuda()
-        running_opp_reward = torch.zeros(batch_size).cuda()
+        running_reward = torch.zeros(batch_size).to(device)
+        running_opp_reward = torch.zeros(batch_size).to(device)
 
         last_reward = 0
         last_opp_reward = 0
