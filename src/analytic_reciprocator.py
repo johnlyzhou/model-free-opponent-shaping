@@ -28,6 +28,7 @@ class AnalyticReciprocator:
     def update_baseline(self, th, tau: float = 1.0):
         self.own_baseline_policy = th[0] * tau + self.own_baseline_policy * (1. - tau)
         self.opponent_baseline_policy = (th[1] * tau + self.opponent_baseline_policy) * (1. - tau)
+        self.init_full_rewards()
 
     def Ls(self, th):
         """
@@ -71,7 +72,7 @@ class AnalyticReciprocator:
 
         S3 = S3.view(self.bsz, -1)  # (bsz, 64)
         T2 = T2.view(self.bsz, 64, 64)
-
+        print(self.full_rewards.max(), self.full_rewards.min())
         M = torch.matmul(S3.unsqueeze(1), torch.inverse(torch.eye(64).to(self.device) - self.gamma * T2))
         L_rr = -torch.matmul(M, torch.reshape(self.full_rewards, (self.bsz, 64, 1)))
         return L_rr.squeeze(-1)
