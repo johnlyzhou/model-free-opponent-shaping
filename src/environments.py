@@ -4,6 +4,13 @@ import os.path as osp
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+RECIPROCATOR_ARGS = {
+    "rr_weight": 5.0,
+    "gamma": 0.96,
+    "buffer_size": 5,
+    "target_period": 5,
+}
+
 
 def ipd_batched(bs, gamma_inner=0.96):
     dims = [5, 5]
@@ -181,10 +188,7 @@ class MetaGames:
             assert osp.exists(f), "Generate the MAMAML weights first"
             self.init_th_ba = torch.load(f)
         elif self.opponent == "Reciprocator":
-            self.analytic_rr = AnalyticReciprocator(rr_weight=10.0,
-                                                    gamma=0.96,
-                                                    buffer_size=10,
-                                                    target_period=10,
+            self.analytic_rr = AnalyticReciprocator(**RECIPROCATOR_ARGS,
                                                     bsz=b,
                                                     device=device)
             self.init_th_ba = None
@@ -346,10 +350,7 @@ class NonMfosMetaGames:
         if self.p1 == "Reciprcator" and self.p2 == "Reciprocator":
             raise NotImplementedError
         if self.p1 == "Reciprocator" or self.p2 == "Reciprocator":
-            self.analytic_rr = AnalyticReciprocator(rr_weight=10.0,
-                                                    gamma=0.96,
-                                                    buffer_size=10,
-                                                    target_period=10,
+            self.analytic_rr = AnalyticReciprocator(**RECIPROCATOR_ARGS,
                                                     bsz=b,
                                                     device=device)
 
