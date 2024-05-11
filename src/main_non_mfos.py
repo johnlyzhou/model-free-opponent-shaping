@@ -9,6 +9,7 @@ parser.add_argument("--exp-name", type=str, default="")
 args = parser.parse_args()
 
 if __name__ == "__main__":
+    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
     batch_size = 8192
     num_steps = 100
     name = args.exp_name
@@ -27,8 +28,8 @@ if __name__ == "__main__":
                     for id in range(10):
                         env = NonMfosMetaGames(batch_size, game=game, p1=p1, p2=p2, mmapg_id=id)
                         env.reset()
-                        running_rew_0 = torch.zeros(batch_size).cuda()
-                        running_rew_1 = torch.zeros(batch_size).cuda()
+                        running_rew_0 = torch.zeros(batch_size).to(device)
+                        running_rew_1 = torch.zeros(batch_size).to(device)
                         for i in range(num_steps):
                             _, r0, r1, M = env.step()
                             running_rew_0 += r0.squeeze(-1)
@@ -52,8 +53,8 @@ if __name__ == "__main__":
                 else:
                     env = NonMfosMetaGames(batch_size, game=game, p1=p1, p2=p2)
                     env.reset()
-                    running_rew_0 = torch.zeros(batch_size).cuda()
-                    running_rew_1 = torch.zeros(batch_size).cuda()
+                    running_rew_0 = torch.zeros(batch_size).to(device)
+                    running_rew_1 = torch.zeros(batch_size).to(device)
                     for i in range(num_steps):
                         _, r0, r1, M = env.step()
                         running_rew_0 += r0.squeeze(-1)
