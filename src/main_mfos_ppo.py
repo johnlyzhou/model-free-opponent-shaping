@@ -100,7 +100,8 @@ if __name__ == "__main__":
             last_opp_reward = info.squeeze(-1).mean().item()
             # print(last_reward.shape, last_opp_reward.shape)
 
-        ppo.update(memory)
+        if not args.checkpoint:
+            ppo.update(memory)
         memory.clear_memory()
 
         print("=" * 100, flush=True)
@@ -120,12 +121,13 @@ if __name__ == "__main__":
                      f"player_{1}": {"last_reward": last_opp_reward, "avg_rew": running_opp_reward.mean().item() / num_steps}})
         print(logs[-1])
 
-        if i_episode % save_freq == 0:
+        if not args.checkpoint and i_episode % save_freq == 0:
             ppo.save(os.path.join(name, f"{i_episode}.pth"))
             with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
                 json.dump(logs, f)
-
-    ppo.save(os.path.join(name, f"{i_episode}.pth"))
-    with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
-        json.dump(rew_means, f)
-    print(f"SAVING! {i_episode}")
+    
+    if not args.checkpoint:
+        ppo.save(os.path.join(name, f"{i_episode}.pth"))
+        with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
+            json.dump(rew_means, f)
+        print(f"SAVING! {i_episode}")
