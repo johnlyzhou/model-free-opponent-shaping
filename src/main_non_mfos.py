@@ -60,7 +60,12 @@ if __name__ == "__main__":
                     running_rew_0 = torch.zeros(batch_size).to(device)
                     running_rew_1 = torch.zeros(batch_size).to(device)
                     for i in tqdm(range(num_steps)):
-                        _, r0, r1, M = env.step()
+                        state, r0, r1, M = env.step()
+                        print(f"Step {i}")
+                        print(f"Mean MFOS policy: {state[:, :5].mean(dim=0)}\n"
+                              f"Std MFOS policy: {state[:, :5].std(dim=0)}\n")
+                        print(f"Mean RR policy: {state[:, 5:].mean(dim=0)}\n"
+                              f"Std RR policy: {state[:, 5:].std(dim=0)}\n")
                         running_rew_0 += r0.squeeze(-1)
                         running_rew_1 += r1.squeeze(-1)
                     mean_rew_0 = (running_rew_0.mean() / num_steps).item()

@@ -88,10 +88,12 @@ if __name__ == "__main__":
             action = ppo.policy_old.act(state, memory)
             # Env step gives the full rewards of an entire inner episode between the two agents
             state, reward, info, M = env.step(action)
-            if args.checkpoint or t==0 or t==num_steps - 1:
+            if args.checkpoint or t == 0 or t == num_steps - 1:
                 print(f"EP {i_episode}, Step {t}")
-                print(f"Mean MFOS policy: {state[0, :5]}")
-                print(f"Mean RR policy: {state[1, 5:]}")
+                print(f"Mean MFOS policy: {state[:, :5].mean(dim=0)}\n"
+                      f"Std MFOS policy: {state[:, :5].std(dim=0)}\n")
+                print(f"Mean RR policy: {state[:, 5:].mean(dim=0)}\n"
+                      f"Std RR policy: {state[:, 5:].std(dim=0)}\n")
 
             memory.rewards.append(reward)
             running_reward += reward.squeeze(-1)
