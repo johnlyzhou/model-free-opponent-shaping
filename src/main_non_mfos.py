@@ -24,8 +24,8 @@ if __name__ == "__main__":
 
     results = []
     for game in ["IPD"]:
-        for p1 in ["Reciprocator", "NL", "LOLA"]:
-            for p2 in ["NL", "LOLA"]:
+        for p1 in ["Reciprocator"]:  #"Reciprocator", "NL", "LOLA"]:
+            for p2 in ["NL", "LOLA", "MAMAML"]:
                 if p1 == "MAMAML" or p2 == "MAMAML":
                     for id in range(10):
                         print(f"Running {game} with {p1} vs. {p2}: ID {id}")
@@ -62,10 +62,10 @@ if __name__ == "__main__":
                     for i in tqdm(range(num_steps)):
                         state, r0, r1, M = env.step()
                         print(f"Step {i}")
-                        print(f"Mean MFOS policy: {state[:, :5].mean(dim=0)}\n"
-                              f"Std MFOS policy: {state[:, :5].std(dim=0)}\n")
-                        print(f"Mean RR policy: {state[:, 5:].mean(dim=0)}\n"
-                              f"Std RR policy: {state[:, 5:].std(dim=0)}\n")
+                        print(f"Mean {p1} policy: {state[:, :5].mean(dim=0)}\n"
+                              f"Std {p1} policy: {state[:, :5].std(dim=0)}\n")
+                        print(f"Mean {p2} policy: {state[:, 5:].mean(dim=0)}\n"
+                              f"Std {p2} policy: {state[:, 5:].std(dim=0)}\n")
                         running_rew_0 += r0.squeeze(-1)
                         running_rew_1 += r1.squeeze(-1)
                     mean_rew_0 = (running_rew_0.mean() / num_steps).item()
