@@ -30,6 +30,7 @@ if __name__ == "__main__":
 
     max_episodes = 1024
     if args.checkpoint:
+        max_episodes = 1
         batch_size = 2
     else:
         batch_size = 4096
@@ -87,14 +88,10 @@ if __name__ == "__main__":
             action = ppo.policy_old.act(state, memory)
             # Env step gives the full rewards of an entire inner episode between the two agents
             state, reward, info, M = env.step(action)
-            if t == 0:
-                print("START")
-                print(f"Mean MFOS policy: {state[:, :5].mean(dim=0)}")
-                print(f"Mean RR policy: {state[:, 5:].mean(dim=0)}")
-            if t == num_steps - 1:
-                print("END")
-                print(f"Mean MFOS policy: {state[:, :5].mean(dim=0)}")
-                print(f"Mean RR policy: {state[:, 5:].mean(dim=0)}")
+            if args.checkpoint or t==0 or t==num_steps - 1:
+                print(f"EP {i_episode}, Step {t}")
+                print(f"Mean MFOS policy: {state[0, :5]}")
+                print(f"Mean RR policy: {state[1, 5:]}")
 
             memory.rewards.append(reward)
             running_reward += reward.squeeze(-1)

@@ -2,7 +2,7 @@ import torch
 from analytic_reciprocator import AnalyticReciprocator
 import os.path as osp
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 def ipd_batched(bs, gamma_inner=0.96):
