@@ -99,10 +99,15 @@ class AnalyticReciprocator:
         #  equal to p(a_t | s_t), since a_t = s_t+1
         T1 = torch.cat([p0 * p1, p0 * (1 - p1), (1 - p0) * p1, (1 - p0) * (1 - p1)], dim=-1)  # (bsz, 4, 4)
         S2 = torch.zeros(self.bsz, 4, 4).to(self.device)
+        S2_rews = torch.zeros(self.bsz).to(self.device)
 
         for s_pre in range(4):
             for s in range(4):
+                s_pre_state = idx_to_state(s_pre)
+                s_state = idx_to_state(s)
                 S2[:, s_pre, s] = S1[:, s_pre] * T1[:, s_pre, s]
+                S2_rews += (self.extrinsic_rewards[s_pre_state[0], s_pre_state[1]]
+                            + self.gamma * self.extrinsic_rewards[s_state[0], s_state[1]]) * S2[:, s_pre, s]
 
         # Probability of transitioning from compound state ABCDEF to GHIJKL (s_pre, s, a) to (s, a, a_next)
         T2 = torch.zeros(self.bsz, 4, 4, 4, 4, 4, 4).to(self.device)
@@ -117,6 +122,8 @@ class AnalyticReciprocator:
         T2 = T2.view(self.bsz, 64, 64)
         M = torch.matmul(S3.unsqueeze(1), torch.inverse(torch.eye(64).to(self.device) - self.gamma * T2))
         L_rr = -torch.matmul(M, torch.reshape(self.full_rewards, (self.bsz, 64, 1)).detach())
+        # Add on the first two states' EV, since that isn't taken into account
+        L_rr += S2_rews.view(self.bsz, 1, 1)
         return L_rr.squeeze(-1)
 
     def init_rr_components(self, s_pre: int, s: int, a: int):
