@@ -356,6 +356,8 @@ class NonMfosMetaGames:
     def reset(self, info=False):
         self.p1_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
         self.p2_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
+        if self.p1 == "Reciprocator" or self.p2 == "Reciprocator":
+            self.analytic_rr.reset()
 
         if self.p1 == "MAMAML":
             self.p1_th_ba = self.init_th_ba.detach() * torch.ones((self.b, self.d), requires_grad=True).to(device)
