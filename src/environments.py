@@ -18,7 +18,7 @@ def ipd_batched(bs, gamma_inner=0.96):
         p = torch.cat([p_1_0 * p_2_0, p_1_0 * (1 - p_2_0), (1 - p_1_0) * p_2_0, (1 - p_1_0) * (1 - p_2_0)], dim=-1)
         p_1 = torch.reshape(torch.sigmoid(th[0][:, 1:5]), (bs, 4, 1))
         p_2 = torch.reshape(torch.sigmoid(torch.cat([th[1][:, 1:2], th[1][:, 3:4], th[1][:, 2:3], th[1][:, 4:5]], dim=-1)), (bs, 4, 1))
-        P = torch.cat([p_1 * p_2, p_1 * (1 - p_2), (1 - p_1) * p_2, (1 - p_1) * (1 - p_2)], dim=-1)
+        P = torch.cat([p_1 * p_2, p_1 * (1 - p_2), (1 - p_1) * p_2, (1 - p_1) * (1 - p_2)], dim=-1)  # (bs, 4, 4)
 
         M = torch.matmul(p.unsqueeze(1), torch.inverse(torch.eye(4).to(device) - gamma_inner * P))
         L_1 = -torch.matmul(M, torch.reshape(payout_mat_1, (bs, 4, 1)))
@@ -364,6 +364,17 @@ class NonMfosMetaGames:
         if self.p2 == "MAMAML":
             self.p2_th_ba = self.init_th_ba.detach() * torch.ones((self.b, self.d), requires_grad=True).to(device)
 
+        if self.p1 == "TFT":
+            self.p1_th_ba = torch.zeros((self.b, self.d)).to(device).detach()
+            self.p1_th_ba[:, [0, 1, 3]] = 1000000
+            self.p1_th_ba[:, 2] = -1000000
+            self.p1_th_ba[:, 4] = -1000000
+        if self.p2 == "TFT":
+            self.p2_th_ba = torch.zeros((self.b, self.d)).to(device).detach()
+            self.p2_th_ba[:, [0, 1, 3]] = 1000000
+            self.p2_th_ba[:, 2] = -1000000
+            self.p2_th_ba[:, 4] = -1000000
+
         state, _, _, M = self.step()
         if info:
             return state, M
@@ -394,6 +405,8 @@ class NonMfosMetaGames:
             with torch.no_grad():
                 self.p1_th_ba -= grad * self.lr
             self.analytic_rr.update_baseline(th_ba[::-1], tau=0.02)
+        elif self.p1 == "TFT":
+            pass
         elif self.p1 == "STATIC":
             pass
         else:
@@ -417,6 +430,8 @@ class NonMfosMetaGames:
             with torch.no_grad():
                 self.p2_th_ba -= grad * self.lr
             self.analytic_rr.update_baseline(th_ba, tau=0.02)
+        elif self.p2 == "TFT":
+            pass
         elif self.p2 == "STATIC":
             pass
         else:
