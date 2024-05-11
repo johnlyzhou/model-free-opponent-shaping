@@ -13,8 +13,8 @@ class AnalyticReciprocator:
         """0 is cooperate, 1 is defect"""
         self.own_baseline_policy_buffer = deque(maxlen=buffer_size)
         self.opponent_baseline_policy_buffer = deque(maxlen=buffer_size)
-        self.own_baseline_policy = torch.sigmoid(torch.ones((bsz, 5)).to(device) / 5)  # (bsz, 5)
-        self.opponent_baseline_policy = torch.sigmoid(torch.ones((bsz, 5)).to(device) / 5)  # (bsz, 5)
+        self.own_baseline_policy = torch.sigmoid(torch.zeros((bsz, 5)).to(device))  # (bsz, 5)
+        self.opponent_baseline_policy = torch.sigmoid(torch.zeros((bsz, 5)).to(device))  # (bsz, 5)
         self.own_baseline_policy_buffer.append(self.own_baseline_policy)
         self.opponent_baseline_policy_buffer.append(self.opponent_baseline_policy)
 
@@ -38,8 +38,8 @@ class AnalyticReciprocator:
     def reset(self):
         self.own_baseline_policy_buffer = deque(maxlen=self.buffer_size)
         self.opponent_baseline_policy_buffer = deque(maxlen=self.buffer_size)
-        self.own_baseline_policy = torch.sigmoid(torch.ones((self.bsz, 5)).to(self.device) / 5)  # (bsz, 5)
-        self.opponent_baseline_policy = torch.sigmoid(torch.ones((self.bsz, 5)).to(self.device) / 5)  # (bsz, 5)
+        self.own_baseline_policy = torch.sigmoid(torch.zeros((self.bsz, 5)).to(self.device))  # (bsz, 5)
+        self.opponent_baseline_policy = torch.sigmoid(torch.zeros((self.bsz, 5)).to(self.device))  # (bsz, 5)
         self.own_baseline_policy_buffer.append(self.own_baseline_policy)
         self.opponent_baseline_policy_buffer.append(self.opponent_baseline_policy)
         self.grudge = torch.zeros(self.bsz, 4, 4).to(self.device)  # (bsz, 4, 4), dim 1 is s_pre and dim 2 is s
@@ -52,7 +52,7 @@ class AnalyticReciprocator:
 
     def update_baseline(self, th, tau: float = 1.0):
         self.own_baseline_policy_buffer.append(torch.sigmoid(th[0]))
-        self.opponent_baseline_policy_buffer.append(torch.sigmoid(th[1]))
+        self.opponent_baseline_policy_buffer.append(torch.sigmoid(th[1][:, torch.LongTensor([0, 1, 3, 2, 4]).to(self.device)]))
 
         if self.episode_count % self.target_period == 0:
             target_own_baseline_policy = torch.mean(torch.stack(list(self.own_baseline_policy_buffer)), dim=0)
@@ -88,16 +88,17 @@ class AnalyticReciprocator:
         p1 = torch.sigmoid(th[1][:, torch.LongTensor([1, 3, 2, 4]).to(self.device)]).view(self.bsz, 4, 1)
 
         # TODO: Compute initial state vector
-        # Initial opening state combos
-        S1 = torch.cat([p0_init * p1_init,
-                        p0_init * (1 - p1_init),
-                        (1 - p0_init) * p1_init,
-                        (1 - p0_init) * (1 - p1_init)], dim=-1)  # (bsz, 4)
+        # Initial opening state combos (bsz, 4)
+        S1 = torch.cat([p0_init * p1_init,  # P(CC | s_0)
+                        p0_init * (1 - p1_init),  # P(CD | s_0)
+                        (1 - p0_init) * p1_init,  # P(DC | s_0)
+                        (1 - p0_init) * (1 - p1_init)], dim=-1)  # P(DD | s_0)
         S3 = torch.zeros(self.bsz, 4, 4, 4).to(self.device)
 
         # Probability of transitioning to each state CD from the current state AB - this is independent since memory-1
         #  equal to p(a_t | s_t), since a_t = s_t+1
         T1 = torch.cat([p0 * p1, p0 * (1 - p1), (1 - p0) * p1, (1 - p0) * (1 - p1)], dim=-1)  # (bsz, 4, 4)
+        # P(s_2 | s_1), e.g. T1[0, 1] = P(CC | CD)
         S2 = torch.zeros(self.bsz, 4, 4).to(self.device)
         S2_rews = torch.zeros(self.bsz).to(self.device)
 
@@ -126,6 +127,11 @@ class AnalyticReciprocator:
         L_rr += S2_rews.view(self.bsz, 1, 1)
         return L_rr.squeeze(-1)
 
+    def state_to_choices(self, s: int) -> str:
+        choices = ['C', 'D']
+        s_idxs = idx_to_state(s)
+        return choices[s_idxs[0]] + choices[s_idxs[1]]
+
     def init_rr_components(self, s_pre: int, s: int, a: int):
         """
         Compute the components (grudge and VoI on other) needed to compute reciprocal rewards.
@@ -133,27 +139,31 @@ class AnalyticReciprocator:
         :param s: The state at t as an int
         :param a: The action at t as an int
         """
+        # print("STATE:", self.state_to_choices(s_pre), self.state_to_choices(s), self.state_to_choices(a))
+        # Compute grudge
         s_state = idx_to_state(s)
         last_rew = self.extrinsic_rewards[s_state[0], s_state[1]]  # Actual reward received at t-1 (since s_t is a_t-1)
         baseline_probs = self.opponent_baseline_policy[:, s_pre]  # (bsz,) p(cooperate | s_pre/t-1)
         # P(C) * r(rc's actual action, C) + P(D) * r(rc's actual action, D) at t-1
         last_expected_rew = (self.extrinsic_rewards[s_state[0], 0] * baseline_probs +
                              self.extrinsic_rewards[s_state[0], 1] * (1 - baseline_probs))
-        # print("INIT")
-        # print(last_expected_rew.max(), last_expected_rew.min())
         self.grudge[:, s_pre, s] = last_expected_rew - last_rew  # essentially just VoI on self for 1-step memory
+        # print(f"OPP BASELINE P(C | {self.state_to_choices(s_pre)}):", baseline_probs[0])
+        # print(f"ACTUAL REWARD R({self.state_to_choices(s)} | {self.state_to_choices(s_pre)}):", last_rew,
+        #       f"EXPECTED REW FOR SELF R({self.state_to_choices(s)[0]}X | {self.state_to_choices(s_pre)}):", last_expected_rew[0])
+        # print("GRUDGE:", self.grudge[0, s_pre, s])
 
+        # Compute VoI on other
         a_state = idx_to_state(a)
-        curr_rew = self.extrinsic_rewards[a_state[0], a_state[1]]  # Extrinsic rew at current time t from actions a_t
+        curr_opp_rew = self.extrinsic_rewards[a_state[1], a_state[0]]  # Extrinsic rew at current time t from actions a_t
         own_baseline_probs = self.own_baseline_policy[:, s]  # (bsz,)
-        # print("PROBS")
-        # print(own_baseline_probs.max(), own_baseline_probs.min())
-        # print(own_baseline_probs.shape)
+        # print(f"OWN BASELINE PROBS P(C | {self.state_to_choices(s)}):", own_baseline_probs[0])
         opp_expected_rew = (self.extrinsic_rewards[a_state[1], 0] * own_baseline_probs +
                             self.extrinsic_rewards[a_state[1], 1] * (1 - own_baseline_probs))
-        # print("OPP")
-        # print(opp_expected_rew.max(), opp_expected_rew.min())
-        self.voi_on_other[:, s, a] = opp_expected_rew - curr_rew
+        self.voi_on_other[:, s, a] = opp_expected_rew - curr_opp_rew
+        # print(f"ACTUAL REWARD R({self.state_to_choices(a)} | {self.state_to_choices(s)}):", curr_opp_rew,
+        #       f"EXPECTED REWARD FOR OPP R(X{self.state_to_choices(a)[1]} | {self.state_to_choices(s)}):", opp_expected_rew[0])
+        # print("VOI:", self.voi_on_other[0, s, a])
 
     def init_full_rewards(self):
         for s_pre in range(4):
