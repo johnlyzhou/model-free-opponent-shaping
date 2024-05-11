@@ -80,11 +80,18 @@ if __name__ == "__main__":
         last_opp_reward = 0
 
         for t in tqdm(range(num_steps)):
-
             # Running policy_old:
             action = ppo.policy_old.act(state, memory)
             # Env step gives the full rewards of an entire inner episode between the two agents
             state, reward, info, M = env.step(action)
+            if t == 0:
+                print("START")
+                print(f"Mean MFOS policy: {state[0].mean(axis=0)}")
+                print(f"Mean RR policy: {state[1].mean(axis=0)}")
+            if t == num_steps - 1:
+                print("END")
+                print(f"Mean MFOS policy: {state[0].mean(axis=0)}")
+                print(f"Mean RR policy: {state[1].mean(axis=0)}")
 
             memory.rewards.append(reward)
             running_reward += reward.squeeze(-1)
