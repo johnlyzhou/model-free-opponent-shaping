@@ -181,10 +181,10 @@ class MetaGames:
             assert osp.exists(f), "Generate the MAMAML weights first"
             self.init_th_ba = torch.load(f)
         elif self.opponent == "Reciprocator":
-            self.analytic_rr = AnalyticReciprocator(rr_weight=5.0,
+            self.analytic_rr = AnalyticReciprocator(rr_weight=10.0,
                                                     gamma=0.96,
-                                                    buffer_size=25,
-                                                    target_period=5,
+                                                    buffer_size=10,
+                                                    target_period=10,
                                                     bsz=b,
                                                     device=device)
             self.init_th_ba = None

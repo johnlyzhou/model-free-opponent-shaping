@@ -5,7 +5,7 @@ import os
 import argparse
 import json
 from tqdm import tqdm
-
+torch.set_printoptions(precision=4, sci_mode=False)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--game", type=str, required=True)
@@ -18,7 +18,7 @@ args = parser.parse_args()
 
 
 if __name__ == "__main__":
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
     ############################################
     K_epochs = 4  # update policy for K epochs
 
@@ -86,12 +86,12 @@ if __name__ == "__main__":
             state, reward, info, M = env.step(action)
             if t == 0:
                 print("START")
-                print(f"Mean MFOS policy: {state[0].mean(axis=0)}")
-                print(f"Mean RR policy: {state[1].mean(axis=0)}")
+                print(f"Mean MFOS policy: {state[:, :5].mean(dim=0)}")
+                print(f"Mean RR policy: {state[:, 5:].mean(dim=0)}")
             if t == num_steps - 1:
                 print("END")
-                print(f"Mean MFOS policy: {state[0].mean(axis=0)}")
-                print(f"Mean RR policy: {state[1].mean(axis=0)}")
+                print(f"Mean MFOS policy: {state[:, :5].mean(dim=0)}")
+                print(f"Mean RR policy: {state[:, 5:].mean(dim=0)}")
 
             memory.rewards.append(reward)
             running_reward += reward.squeeze(-1)
