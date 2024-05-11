@@ -423,6 +423,6 @@ class NonMfosMetaGames:
             raise NotImplementedError
 
         if self.game == "IPD" or self.game == "IMP":
-            return torch.sigmoid(torch.cat([last_p1_th_ba, last_p2_th_ba])), -l2 * (1 - self.gamma_inner), -l1 * (1 - self.gamma_inner), M
+            return torch.sigmoid(torch.cat([last_p1_th_ba, last_p2_th_ba], dim=-1)), -l2 * (1 - self.gamma_inner), -l1 * (1 - self.gamma_inner), M
         else:
-            return torch.sigmoid(torch.cat([last_p1_th_ba, last_p2_th_ba])), -l2.detach(), -l1.detach(), M
+            return torch.sigmoid(torch.cat([last_p1_th_ba, last_p2_th_ba], dim=-1)), -l2.detach(), -l1.detach(), M
