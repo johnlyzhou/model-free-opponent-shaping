@@ -20,9 +20,9 @@ if __name__ == "__main__":
             json.dump(args.__dict__, f, indent=2)
 
     results = []
-    for game in ["IPD", "IMP", "chicken"]:
-        for p1 in ["STATIC", "NL", "LOLA", "MAMAML"]:
-            for p2 in ["STATIC", "NL", "LOLA", "MAMAML"]:
+    for game in ["IPD", "chicken"]:
+        for p1 in ["Reciprocator", "NL", "LOLA"]:
+            for p2 in ["NL", "LOLA"]:
                 if p1 == "MAMAML" or p2 == "MAMAML":
                     for id in range(10):
                         env = NonMfosMetaGames(batch_size, game=game, p1=p1, p2=p2, mmapg_id=id)
