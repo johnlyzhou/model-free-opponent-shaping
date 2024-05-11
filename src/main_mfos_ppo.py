@@ -114,16 +114,9 @@ if __name__ == "__main__":
         print(logs[-1])
 
         if i_episode % save_freq == 0:
-            with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
-                json.dump(logs, f)
-
-        print(f"opponent loss: {-running_opp_reward.mean() / num_steps}", flush=True)
-
-        if i_episode % save_freq == 0:
             ppo.save(os.path.join(name, f"{i_episode}.pth"))
             with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
-                json.dump(rew_means, f)
-            print(f"SAVING! {i_episode}")
+                json.dump(logs, f)
 
     ppo.save(os.path.join(name, f"{i_episode}.pth"))
     with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
