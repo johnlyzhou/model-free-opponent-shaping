@@ -29,7 +29,10 @@ if __name__ == "__main__":
     betas = (0.9, 0.999)
 
     max_episodes = 1024
-    batch_size = 4096
+    if args.checkpoint:
+        batch_size = 2
+    else:
+        batch_size = 4096
     random_seed = None
     num_steps = 100
 
@@ -125,7 +128,7 @@ if __name__ == "__main__":
             ppo.save(os.path.join(name, f"{i_episode}.pth"))
             with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
                 json.dump(logs, f)
-    
+
     if not args.checkpoint:
         ppo.save(os.path.join(name, f"{i_episode}.pth"))
         with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
