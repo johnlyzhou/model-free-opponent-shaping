@@ -343,6 +343,16 @@ class NonMfosMetaGames:
             self.init_th_ba = torch.load(f)
             print(self.init_th_ba)
 
+        if self.p1 == "Reciprcator" and self.p2 == "Reciprocator":
+            raise NotImplementedError
+        if self.p1 == "Reciprocator" or self.p2 == "Reciprocator":
+            self.analytic_rr = AnalyticReciprocator(rr_weight=10.0,
+                                                    gamma=0.96,
+                                                    buffer_size=10,
+                                                    target_period=10,
+                                                    bsz=b,
+                                                    device=device)
+
     def reset(self, info=False):
         self.p1_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
         self.p2_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
@@ -376,6 +386,12 @@ class NonMfosMetaGames:
             grad = grad_L[1][1] - self.lr * get_gradient(term, th_ba[1])
             with torch.no_grad():
                 self.p1_th_ba -= grad * self.lr
+        elif self.p1 == 'Reciprocator':
+            L_rr = self.analytic_rr.Ls(th_ba)
+            grad = get_gradient(L_rr.sum(), th_ba[1])
+            with torch.no_grad():
+                self.p1_th_ba -= grad * self.lr
+            self.analytic_rr.update_baseline(th_ba[::-1], tau=0.02)
         elif self.p1 == "STATIC":
             pass
         else:
@@ -393,6 +409,12 @@ class NonMfosMetaGames:
             grad = grad_L[0][0] - self.lr * get_gradient(term, th_ba[0])
             with torch.no_grad():
                 self.p2_th_ba -= grad * self.lr
+        elif self.p2 == "Reciprocator":
+            L_rr = self.analytic_rr.Ls(th_ba)
+            grad = get_gradient(L_rr.sum(), th_ba[0])
+            with torch.no_grad():
+                self.p2_th_ba -= grad * self.lr
+            self.analytic_rr.update_baseline(th_ba, tau=0.02)
         elif self.p2 == "STATIC":
             pass
         else:
