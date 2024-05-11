@@ -2,7 +2,7 @@ import torch
 from analytic_reciprocator import AnalyticReciprocator
 import os.path as osp
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 
 def ipd_batched(bs, gamma_inner=0.96):
@@ -181,8 +181,8 @@ class MetaGames:
             assert osp.exists(f), "Generate the MAMAML weights first"
             self.init_th_ba = torch.load(f)
         elif self.opponent == "Reciprocator":
-            self.analytic_rr = AnalyticReciprocator(torch.ones((b, 5)) / 5,
-                                                    torch.ones((b, 5)) / 5,
+            self.analytic_rr = AnalyticReciprocator(torch.ones((b, 5)).to(device) / 5,
+                                                    torch.ones((b, 5)).to(device) / 5,
                                                     rr_weight=5.0,
                                                     gamma=0.96,
                                                     bsz=b,
@@ -228,7 +228,7 @@ class MetaGames:
             grad = get_gradient(L_rr.sum(), self.inner_th_ba)
             with torch.no_grad():
                 self.inner_th_ba -= grad * self.lr
-            self.analytic_rr.update_baseline(th_ba, tau=1.0)
+            self.analytic_rr.update_baseline(th_ba, tau=0.02)
         elif self.opponent == "BR":
             # Best response agent, is allowed to train for num_steps to get to a policy before the playing the game vs.
             #  MFOS's outputted policy
