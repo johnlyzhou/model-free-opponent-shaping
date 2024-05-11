@@ -1,3 +1,5 @@
+from collections import deque
+
 import torch
 torch.autograd.set_detect_anomaly(True)
 
@@ -7,11 +9,17 @@ def idx_to_state(idx: int or torch.Tensor):
 
 class AnalyticReciprocator:
     def __init__(self, own_baseline_policy: torch.Tensor, opponent_baseline_policy: torch.Tensor, rr_weight: float,
-                 gamma: float, bsz: int, device: torch.device):
+                 buffer_size: int, gamma: float, bsz: int, device: torch.device):
         """0 is cooperate, 1 is defect"""
+        self.own_baseline_policy_buffer = deque(maxlen=buffer_size)
+        self.opponent_baseline_policy_buffer = deque(maxlen=buffer_size)
         self.own_baseline_policy = torch.sigmoid(own_baseline_policy)  # (bsz, 5)
         self.opponent_baseline_policy = torch.sigmoid(opponent_baseline_policy)  # (bsz, 5)
+        self.own_baseline_policy_buffer.append(self.own_baseline_policy)
+        self.opponent_baseline_policy_buffer.append(self.opponent_baseline_policy)
+
         self.rr_weight = rr_weight
+        self.buffer_size = buffer_size
         self.gamma = gamma
         self.bsz = bsz
         self.device = device
@@ -26,20 +34,24 @@ class AnalyticReciprocator:
         self.init_full_rewards()
 
     def update_baseline(self, th, tau: float = 1.0):
-        self.own_baseline_policy = torch.sigmoid(th[0]) * tau + self.own_baseline_policy * (1. - tau)
-        self.opponent_baseline_policy = torch.sigmoid(th[1]) * tau + self.opponent_baseline_policy * (1. - tau)
+        self.own_baseline_policy_buffer.append(torch.sigmoid(th[0]))
+        self.opponent_baseline_policy_buffer.append(torch.sigmoid(th[1]))
+        self.own_baseline_policy = torch.mean(torch.stack(list(self.own_baseline_policy_buffer)), dim=0)
+        self.opponent_baseline_policy = torch.mean(torch.stack(list(self.opponent_baseline_policy_buffer)), dim=0)
+        # self.own_baseline_policy = torch.sigmoid(th[0]) * tau + self.own_baseline_policy * (1. - tau)
+        # self.opponent_baseline_policy = torch.sigmoid(th[1]) * tau + self.opponent_baseline_policy * (1. - tau)
         self.init_full_rewards()
-        print(torch.sigmoid(th[0][0]))
-        print(torch.sigmoid(th[1][0]))
+        # print(torch.sigmoid(th[0][0]))
+        # print(torch.sigmoid(th[1][0]))
         # print("RR policy")
         # print(torch.sigmoid(torch.max(th[0], dim=0)[0]), torch.sigmoid(torch.max(th[0], dim=0)[0]))
         # print(torch.sigmoid(torch.max(th[0], dim=0)[0]), torch.sigmoid(torch.max(th[0], dim=0)[0]))
         # print("MFOS policy")
         # print(torch.sigmoid(torch.max(th[1], dim=0)[0]), torch.sigmoid(torch.max(th[1], dim=0)[0]))
         # print(torch.sigmoid(torch.min(th[1], dim=0)[0]), torch.sigmoid(torch.min(th[1], dim=0)[0]))
-        print("RR COMPONENTS")
-        print(self.grudge[0])
-        print(self.voi_on_other[0])
+        # print("RR COMPONENTS")
+        # print(self.grudge[0])
+        # print(self.voi_on_other[0])
 
     def Ls(self, th):
         """
