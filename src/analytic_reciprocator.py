@@ -48,7 +48,7 @@ class AnalyticReciprocator:
 
         # RR will be the product of these two
         self.init_full_rewards()
-        self.episode_count = 0
+        self.episode_count = 1
 
     def update_baseline(self, th, tau: float = 1.0):
         self.own_baseline_policy_buffer.append(torch.sigmoid(th[0]))
