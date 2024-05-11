@@ -8,18 +8,19 @@ def idx_to_state(idx: int or torch.Tensor):
 
 
 class AnalyticReciprocator:
-    def __init__(self, own_baseline_policy: torch.Tensor, opponent_baseline_policy: torch.Tensor, rr_weight: float,
-                 buffer_size: int, gamma: float, bsz: int, device: torch.device):
+    def __init__(self, rr_weight: float, buffer_size: int, target_period: int, gamma: float, bsz: int,
+                 device: torch.device):
         """0 is cooperate, 1 is defect"""
         self.own_baseline_policy_buffer = deque(maxlen=buffer_size)
         self.opponent_baseline_policy_buffer = deque(maxlen=buffer_size)
-        self.own_baseline_policy = torch.sigmoid(own_baseline_policy)  # (bsz, 5)
-        self.opponent_baseline_policy = torch.sigmoid(opponent_baseline_policy)  # (bsz, 5)
+        self.own_baseline_policy = torch.sigmoid(torch.ones((bsz, 5)).to(device) / 5)  # (bsz, 5)
+        self.opponent_baseline_policy = torch.sigmoid(torch.ones((bsz, 5)).to(device) / 5)  # (bsz, 5)
         self.own_baseline_policy_buffer.append(self.own_baseline_policy)
         self.opponent_baseline_policy_buffer.append(self.opponent_baseline_policy)
 
         self.rr_weight = rr_weight
         self.buffer_size = buffer_size
+        self.target_period = target_period
         self.gamma = gamma
         self.bsz = bsz
         self.device = device
@@ -32,15 +33,33 @@ class AnalyticReciprocator:
 
         # RR will be the product of these two
         self.init_full_rewards()
+        self.episode_count = 0
+
+    def reset(self):
+        self.own_baseline_policy_buffer = deque(maxlen=self.buffer_size)
+        self.opponent_baseline_policy_buffer = deque(maxlen=self.buffer_size)
+        self.own_baseline_policy = torch.sigmoid(torch.ones((self.bsz, 5)).to(self.device) / 5)  # (bsz, 5)
+        self.opponent_baseline_policy = torch.sigmoid(torch.ones((self.bsz, 5)).to(self.device) / 5)  # (bsz, 5)
+        self.own_baseline_policy_buffer.append(self.own_baseline_policy)
+        self.opponent_baseline_policy_buffer.append(self.opponent_baseline_policy)
+        self.grudge = torch.zeros(self.bsz, 4, 4).to(self.device)  # (bsz, 4, 4), dim 1 is s_pre and dim 2 is s
+        self.voi_on_other = torch.zeros(self.bsz, 4, 4).to(self.device)  # (bsz, 4, 4), dim 1 is s and dim 2 is a
+        self.full_rewards = torch.zeros(self.bsz, 4, 4, 4).to(self.device)
+
+        # RR will be the product of these two
+        self.init_full_rewards()
+        self.episode_count = 0
 
     def update_baseline(self, th, tau: float = 1.0):
         self.own_baseline_policy_buffer.append(torch.sigmoid(th[0]))
         self.opponent_baseline_policy_buffer.append(torch.sigmoid(th[1]))
-        target_own_baseline_policy = torch.mean(torch.stack(list(self.own_baseline_policy_buffer)), dim=0)
-        target_opponent_baseline_policy = torch.mean(torch.stack(list(self.opponent_baseline_policy_buffer)), dim=0)
-        self.own_baseline_policy = target_own_baseline_policy * tau + self.own_baseline_policy * (1. - tau)
-        self.opponent_baseline_policy = target_opponent_baseline_policy * tau + self.opponent_baseline_policy * (1. - tau)
-        self.init_full_rewards()
+
+        if self.episode_count % self.target_period == 0:
+            target_own_baseline_policy = torch.mean(torch.stack(list(self.own_baseline_policy_buffer)), dim=0)
+            target_opponent_baseline_policy = torch.mean(torch.stack(list(self.opponent_baseline_policy_buffer)), dim=0)
+            self.own_baseline_policy = target_own_baseline_policy * tau + self.own_baseline_policy * (1. - tau)
+            self.opponent_baseline_policy = target_opponent_baseline_policy * tau + self.opponent_baseline_policy * (1. - tau)
+            self.init_full_rewards()
         # print(torch.sigmoid(th[0][0]))
         # print(torch.sigmoid(th[1][0]))
         # print("RR policy")
@@ -58,6 +77,7 @@ class AnalyticReciprocator:
         Compute the loss function for the agent.
         :param th: List of 2 tensors of shape (bsz, 5) representing the policy parameters.
         """
+        self.episode_count += 1
         # Prob of cooperating in starting state s_0
         p0_init = torch.sigmoid(th[0][:, 0:1])
         p1_init = torch.sigmoid(th[1][:, 0:1])
