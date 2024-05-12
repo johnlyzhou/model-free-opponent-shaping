@@ -8,13 +8,37 @@ RECIPROCATOR_ARGS = {
     "rr_weight": 5.0,
     "gamma": 0.96,
     "buffer_size": 5,
-    "target_period": 5,
+    "target_period": 10
 }
 
 
 def ipd_batched(bs, gamma_inner=0.96):
     dims = [5, 5]
     payout_mat_1 = torch.Tensor([[-1, -3], [0, -2]]).to(device)
+    payout_mat_2 = payout_mat_1.T
+    payout_mat_1 = payout_mat_1.reshape((1, 2, 2)).repeat(bs, 1, 1).to(device)
+    payout_mat_2 = payout_mat_2.reshape((1, 2, 2)).repeat(bs, 1, 1).to(device)
+
+    def Ls(th):  # th is a list of two different tensors. First one is first agent? tnesor size is List[Tensor(bs, 5), Tensor(bs,5)].
+        p_1_0 = torch.sigmoid(th[0][:, 0:1])
+        p_2_0 = torch.sigmoid(th[1][:, 0:1])
+        p = torch.cat([p_1_0 * p_2_0, p_1_0 * (1 - p_2_0), (1 - p_1_0) * p_2_0, (1 - p_1_0) * (1 - p_2_0)], dim=-1)
+        p_1 = torch.reshape(torch.sigmoid(th[0][:, 1:5]), (bs, 4, 1))
+        p_2 = torch.reshape(torch.sigmoid(torch.cat([th[1][:, 1:2], th[1][:, 3:4], th[1][:, 2:3], th[1][:, 4:5]], dim=-1)), (bs, 4, 1))
+        P = torch.cat([p_1 * p_2, p_1 * (1 - p_2), (1 - p_1) * p_2, (1 - p_1) * (1 - p_2)], dim=-1)  # (bs, 4, 4)
+
+        M = torch.matmul(p.unsqueeze(1), torch.inverse(torch.eye(4).to(device) - gamma_inner * P))
+        L_1 = -torch.matmul(M, torch.reshape(payout_mat_1, (bs, 4, 1)))
+        L_2 = -torch.matmul(M, torch.reshape(payout_mat_2, (bs, 4, 1)))
+
+        return [L_1.squeeze(-1), L_2.squeeze(-1), M]
+
+    return dims, Ls
+
+
+def chicken_game_batch(bs, gamma_inner=0.96):
+    dims = [5, 5]
+    payout_mat_1 = torch.Tensor([[0, -1], [1, -100]]).to(device)
     payout_mat_2 = payout_mat_1.T
     payout_mat_1 = payout_mat_1.reshape((1, 2, 2)).repeat(bs, 1, 1).to(device)
     payout_mat_2 = payout_mat_2.reshape((1, 2, 2)).repeat(bs, 1, 1).to(device)
@@ -100,21 +124,21 @@ def matching_pennies_batch(batch_size=128):
     return dims, Ls
 
 
-def chicken_game_batch(batch_size=128):
-    dims = [1, 1]
-    payout_mat_1 = torch.Tensor([[0, -1], [1, -100]]).to(device)
-    payout_mat_2 = torch.Tensor([[0, 1], [-1, -100]]).to(device)
-    payout_mat_1 = payout_mat_1.reshape((1, 2, 2)).repeat(batch_size, 1, 1)
-    payout_mat_2 = payout_mat_2.reshape((1, 2, 2)).repeat(batch_size, 1, 1)
-
-    def Ls(th):
-        p_1, p_2 = torch.sigmoid(th[0]), torch.sigmoid(th[1])
-        x, y = torch.cat([p_1, 1 - p_1], dim=-1), torch.cat([p_2, 1 - p_2], dim=-1)
-        L_1 = -torch.matmul(torch.matmul(x.unsqueeze(1), payout_mat_1), y.unsqueeze(-1))
-        L_2 = -torch.matmul(torch.matmul(x.unsqueeze(1), payout_mat_2), y.unsqueeze(-1))
-        return [L_1.squeeze(-1), L_2.squeeze(-1), None]
-
-    return dims, Ls
+# def chicken_game_batch(batch_size=128):
+#     dims = [1, 1]
+#     payout_mat_1 = torch.Tensor([[0, -1], [1, -100]]).to(device)
+#     payout_mat_2 = torch.Tensor([[0, 1], [-1, -100]]).to(device)
+#     payout_mat_1 = payout_mat_1.reshape((1, 2, 2)).repeat(batch_size, 1, 1)
+#     payout_mat_2 = payout_mat_2.reshape((1, 2, 2)).repeat(batch_size, 1, 1)
+#
+#     def Ls(th):
+#         p_1, p_2 = torch.sigmoid(th[0]), torch.sigmoid(th[1])
+#         x, y = torch.cat([p_1, 1 - p_1], dim=-1), torch.cat([p_2, 1 - p_2], dim=-1)
+#         L_1 = -torch.matmul(torch.matmul(x.unsqueeze(1), payout_mat_1), y.unsqueeze(-1))
+#         L_2 = -torch.matmul(torch.matmul(x.unsqueeze(1), payout_mat_2), y.unsqueeze(-1))
+#         return [L_1.squeeze(-1), L_2.squeeze(-1), None]
+#
+#     return dims, Ls
 
 
 def generate_mamaml(b, d, inner_env, game, inner_lr=1):
@@ -189,6 +213,7 @@ class MetaGames:
             self.init_th_ba = torch.load(f)
         elif self.opponent == "Reciprocator":
             self.analytic_rr = AnalyticReciprocator(**RECIPROCATOR_ARGS,
+                                                    game=self.game,
                                                     bsz=b,
                                                     device=device)
             self.init_th_ba = None
@@ -351,6 +376,7 @@ class NonMfosMetaGames:
             raise NotImplementedError
         if self.p1 == "Reciprocator" or self.p2 == "Reciprocator":
             self.analytic_rr = AnalyticReciprocator(**RECIPROCATOR_ARGS,
+                                                    game=self.game,
                                                     bsz=b,
                                                     device=device)
 

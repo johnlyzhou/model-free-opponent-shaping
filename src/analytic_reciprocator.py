@@ -9,7 +9,7 @@ def idx_to_state(idx: int or torch.Tensor):
 
 class AnalyticReciprocator:
     def __init__(self, rr_weight: float, buffer_size: int, target_period: int, gamma: float, bsz: int,
-                 device: torch.device):
+                 game: str, device: torch.device):
         """0 is cooperate, 1 is defect"""
         self.own_baseline_policy_buffer = deque(maxlen=buffer_size)
         self.opponent_baseline_policy_buffer = deque(maxlen=buffer_size)
@@ -26,7 +26,13 @@ class AnalyticReciprocator:
         self.device = device
         # Payoff depends on the s_t-1, s_t, and a_t
         #  After 2 steps, 4 possible states for t-1, 4 possible states for s_t, 4 possible combos of a_t (i.e. s_t+1)
-        self.extrinsic_rewards = torch.Tensor([[-1, -3], [0, -2]]).to(device)
+        if game == "IPD":
+            self.extrinsic_rewards = torch.Tensor([[-1, -3], [0, -2]]).to(device)
+        elif game == "chicken":
+            self.extrinsic_rewards = torch.Tensor([[0, -1], [1, -100]]).to(device)
+        else:
+            raise ValueError("Game not recognized.")
+
         self.grudge = torch.zeros(bsz, 4, 4).to(device)  # (bsz, 4, 4), dim 1 is s_pre and dim 2 is s
         self.voi_on_other = torch.zeros(bsz, 4, 4).to(device)  # (bsz, 4, 4), dim 1 is s and dim 2 is a
         self.full_rewards = torch.zeros(self.bsz, 4, 4, 4).to(device)
