@@ -1,7 +1,9 @@
 from collections import deque
 
 import torch
+
 torch.autograd.set_detect_anomaly(True)
+
 
 def idx_to_state(idx: int or torch.Tensor):
     return torch.tensor([idx % 2, idx // 2], dtype=torch.long)
@@ -58,13 +60,15 @@ class AnalyticReciprocator:
 
     def update_baseline(self, th, tau: float = 1.0):
         self.own_baseline_policy_buffer.append(torch.sigmoid(th[0]))
-        self.opponent_baseline_policy_buffer.append(torch.sigmoid(th[1][:, torch.LongTensor([0, 1, 3, 2, 4]).to(self.device)]))
+        self.opponent_baseline_policy_buffer.append(
+            torch.sigmoid(th[1][:, torch.LongTensor([0, 1, 3, 2, 4]).to(self.device)]))
 
         if self.episode_count % self.target_period == 0:
             target_own_baseline_policy = torch.mean(torch.stack(list(self.own_baseline_policy_buffer)), dim=0)
             target_opponent_baseline_policy = torch.mean(torch.stack(list(self.opponent_baseline_policy_buffer)), dim=0)
             self.own_baseline_policy = target_own_baseline_policy * tau + self.own_baseline_policy * (1. - tau)
-            self.opponent_baseline_policy = target_opponent_baseline_policy * tau + self.opponent_baseline_policy * (1. - tau)
+            self.opponent_baseline_policy = target_opponent_baseline_policy * tau + self.opponent_baseline_policy * (
+                        1. - tau)
             self.init_full_rewards()
         # print(torch.sigmoid(th[0][0]))
         # print(torch.sigmoid(th[1][0]))
@@ -115,6 +119,20 @@ class AnalyticReciprocator:
                 S2[:, s_pre, s] = S1[:, s_pre] * T1[:, s_pre, s]
                 S2_rews += (self.extrinsic_rewards[s_pre_state[0], s_pre_state[1]]
                             + self.gamma * self.extrinsic_rewards[s_state[0], s_state[1]]) * S2[:, s_pre, s]
+                # Now add intrinsic rr
+                # Grudge
+                actual_self_rew = self.extrinsic_rewards[s_pre_state[0], s_pre_state[1]]
+                baseline_probs = self.opponent_baseline_policy[:, 0]  # (bsz,) p(cooperate | s_pre/t-1)
+                expected_self_rew = (self.extrinsic_rewards[s_pre_state[0], 0] * baseline_probs +
+                                     self.extrinsic_rewards[s_pre_state[0], 1] * (1 - baseline_probs))
+                grudge = expected_self_rew - actual_self_rew
+                # VoI
+                actual_opp_rew = self.extrinsic_rewards[s_state[1], s_state[0]]
+                own_baseline_probs = self.own_baseline_policy[:, s]  # (bsz,)
+                expected_opp_rew = (self.extrinsic_rewards[s_state[1], 0] * own_baseline_probs +
+                                    self.extrinsic_rewards[s_state[1], 1] * (1 - own_baseline_probs))
+                voi = expected_opp_rew - actual_opp_rew
+                S2_rews += grudge * voi * self.rr_weight
 
         # Probability of transitioning from compound state ABCDEF to GHIJKL (s_pre, s, a) to (s, a, a_next)
         T2 = torch.zeros(self.bsz, 4, 4, 4, 4, 4, 4).to(self.device)
@@ -161,7 +179,8 @@ class AnalyticReciprocator:
 
         # Compute VoI on other
         a_state = idx_to_state(a)
-        curr_opp_rew = self.extrinsic_rewards[a_state[1], a_state[0]]  # Extrinsic rew at current time t from actions a_t
+        curr_opp_rew = self.extrinsic_rewards[
+            a_state[1], a_state[0]]  # Extrinsic rew at current time t from actions a_t
         own_baseline_probs = self.own_baseline_policy[:, s]  # (bsz,)
         # print(f"OWN BASELINE PROBS P(C | {self.state_to_choices(s)}):", own_baseline_probs[0])
         opp_expected_rew = (self.extrinsic_rewards[a_state[1], 0] * own_baseline_probs +
@@ -183,5 +202,6 @@ class AnalyticReciprocator:
             for s in range(4):
                 for a in range(4):
                     a_state = idx_to_state(a)
-                    self.full_rewards[:, s_pre, s, a] = self.grudge[:, s_pre, s] * self.voi_on_other[:, s, a] * self.rr_weight
+                    self.full_rewards[:, s_pre, s, a] = self.grudge[:, s_pre, s] * self.voi_on_other[:, s,
+                                                                                   a] * self.rr_weight
                     self.full_rewards[:, s_pre, s, a] += self.extrinsic_rewards[a_state[0], a_state[1]]

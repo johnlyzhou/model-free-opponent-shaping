@@ -443,7 +443,7 @@ class NonMfosMetaGames:
                 self.p1_th_ba -= grad * self.lr
         elif self.p1 == 'Reciprocator':
             L_rr = self.analytic_rr_p1.Ls(th_ba[::-1])
-            grad = get_gradient(L_rr.sum(), th_ba[1])
+            grad = get_gradient(L_rr.sum(), self.p1_th_ba)
             with torch.no_grad():
                 self.p1_th_ba -= grad * self.lr
             self.analytic_rr_p1.update_baseline(th_ba[::-1], tau=RECIPROCATOR_TAU)
