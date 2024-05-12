@@ -231,6 +231,11 @@ class MetaGames:
             self.inner_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
         outer_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
         state, _, _, M = self.step(outer_th_ba)
+        if self.opponent == "TFT":
+            self.inner_th_ba = torch.zeros((self.b, self.d)).to(device).detach()
+            self.inner_th_ba[:, [0, 1, 3]] = 1000000
+            self.inner_th_ba[:, 2] = -1000000
+            self.inner_th_ba[:, 4] = -1000000
         if info:
             return state, M
         else:
@@ -262,6 +267,9 @@ class MetaGames:
             with torch.no_grad():
                 self.inner_th_ba -= grad * self.lr
             self.analytic_rr.update_baseline(th_ba, tau=RECIPROCATOR_TAU)
+        elif self.opponent == "TFT":
+            th_ba = [self.inner_th_ba, outer_th_ba.detach()]
+            l1, l2, M = self.game_batched(th_ba)
         elif self.opponent == "BR":
             # Best response agent, is allowed to train for num_steps to get to a policy before the playing the game vs.
             #  MFOS's outputted policy
