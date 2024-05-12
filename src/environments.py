@@ -398,8 +398,10 @@ class NonMfosMetaGames:
     def reset(self, info=False):
         self.p1_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
         self.p2_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
-        if self.p1 == "Reciprocator" or self.p2 == "Reciprocator":
+        if self.p1 == "Reciprocator":
             self.analytic_rr_p1.reset()
+        if self.p2 == "Reciprocator":
+            self.analytic_rr_p2.reset()
 
         if self.p1 == "MAMAML":
             self.p1_th_ba = self.init_th_ba.detach() * torch.ones((self.b, self.d), requires_grad=True).to(device)
@@ -468,7 +470,7 @@ class NonMfosMetaGames:
                 self.p2_th_ba -= grad * self.lr
         elif self.p2 == "Reciprocator":
             L_rr = self.analytic_rr_p2.Ls(th_ba)
-            grad = get_gradient(L_rr.sum(), th_ba[0])
+            grad = get_gradient(L_rr.sum(), self.p2_th_ba)
             with torch.no_grad():
                 self.p2_th_ba -= grad * self.lr
             self.analytic_rr_p2.update_baseline(th_ba, tau=0.02)
