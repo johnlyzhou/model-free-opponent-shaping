@@ -23,7 +23,7 @@ if __name__ == "__main__":
             json.dump(args.__dict__, f, indent=2)
 
     results = []
-    for game in ["IPD"]:
+    for game in ["IPD", "chicken"]:
         for p1 in ["Reciprocator"]:  #"Reciprocator", "NL", "LOLA"]:
             for p2 in ["NL", "LOLA", "MAMAML"]:
                 if p1 == "MAMAML" or p2 == "MAMAML":
