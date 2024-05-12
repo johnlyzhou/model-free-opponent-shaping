@@ -11,6 +11,8 @@ RECIPROCATOR_ARGS = {
     "target_period": 10
 }
 
+RECIPROCATOR_TAU = 0.02
+
 
 def ipd_batched(bs, gamma_inner=0.96):
     dims = [5, 5]
@@ -259,7 +261,7 @@ class MetaGames:
             grad = get_gradient(L_rr.sum(), self.inner_th_ba)
             with torch.no_grad():
                 self.inner_th_ba -= grad * self.lr
-            self.analytic_rr.update_baseline(th_ba, tau=0.02)
+            self.analytic_rr.update_baseline(th_ba, tau=RECIPROCATOR_TAU)
         elif self.opponent == "BR":
             # Best response agent, is allowed to train for num_steps to get to a policy before the playing the game vs.
             #  MFOS's outputted policy
@@ -431,7 +433,7 @@ class NonMfosMetaGames:
             grad = get_gradient(L_rr.sum(), th_ba[1])
             with torch.no_grad():
                 self.p1_th_ba -= grad * self.lr
-            self.analytic_rr.update_baseline(th_ba[::-1], tau=0.02)
+            self.analytic_rr.update_baseline(th_ba[::-1], tau=RECIPROCATOR_TAU)
         elif self.p1 == "TFT":
             pass
         elif self.p1 == "STATIC":
