@@ -184,6 +184,9 @@ class PPOMFOS:
         self.inner_ep_len = inner_ep_len
 
     def update(self, memory):
+        """
+        Rewards in memory should be a list of length T with shape (bsz,)
+        """
         # Monte Carlo estimate of state rewards:
         rewards = []
         discounted_reward = 0

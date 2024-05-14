@@ -197,6 +197,7 @@ class CoinGamePPO:
         return torch.cat([self.env_states[0], rewards_inner_tiled, rewards_outer_tiled, dones_inner_tiled], axis=1)
 
     def step(self, actions):
+        """Actions is just MFOS's action, the inner PPO agent's action is sampled inside."""
         self.t += 1
         if torch.any(self.dones_inner):
             info = None
@@ -210,6 +211,7 @@ class CoinGamePPO:
             self.inner_memory.clear_memory()
         else:
             with torch.no_grad():
+                # Sample inner PPO agent's action
                 self.inner_actions = self.inner_agent.policy_old.act(self.env_states[1], self.inner_memory)
 
                 if self.first:
