@@ -58,51 +58,54 @@ if __name__ == "__main__":
     # env
     env = CoinGamePPO(batch_size, inner_ep_len)
 
-    # Meta episode loop
+    # training loop
     for i_episode in range(1, max_episodes + 1):
         memory.clear_memory()
-        state = env.reset()
+        state = env.reset()  # Reset environment, including NL PPO opponent back to initialization
+        # These stats are kept across the meta-episode which consists of multiple episodes of CoinGame -
+        #  should normalize this by the number of episodes in the meta-episode or just record outcomes of last one
         running_reward = 0
         opp_running_reward = 0
         p1_num_opp, p2_num_opp, p1_num_self, p2_num_self = 0, 0, 0, 0
-        # Meta step loop, each meta_t is an episode
-        for meta_t in range(num_steps):
-            # Inner game step loop
-            for t in range(inner_ep_len):
-                if t % inner_ep_len == 0:
-                    ppo.policy_old.reset(memory, meta_t == 0)
-                with torch.no_grad():
-                    action = ppo.policy_old.act(state.detach())  # Get an action from MFOS actor
-                # This is still an actual step of CoinGame, not a meta-step
-                state, reward, done, info, info_2 = env.step(action.detach())
-                running_reward += reward.detach()
-                opp_running_reward += info.detach()
-                memory.rewards.append(reward.detach())
-                if info_2 is not None:
-                    p1_num_opp += info_2[2]
-                    p2_num_opp += info_2[1]
-                    p1_num_self += info_2[3]
-                    p2_num_self += info_2[0]
+        # Num_steps is the total number of steps num_episodes * inner_episode_len
+        # Each t is an actual step of CoinGame
+        for t in range(num_steps):
+            # Running policy_old:
+            if t % inner_ep_len == 0:
+                # If t == 0, then this is the start of a meta-episode (new i_episode) and you fully reset the
+                #  conditioning vector th_ba
+                #  else if just t % inner_ep_len == 0, then this is the start of a new inner episode and you generate a
+                #  new th_ba conditoning vector based on your meta-policy
+                ppo.policy_old.reset(memory, t == 0)
+            with torch.no_grad():
+                action = ppo.policy_old.act(state.detach())  # Get an action from MFOS actor
+            state, reward, done, info, info_2 = env.step(action.detach())
+            running_reward += reward.detach()
+            opp_running_reward += info.detach()
+            memory.rewards.append(reward.detach())
+            if info_2 is not None:
+                p1_num_opp += info_2[2]
+                p2_num_opp += info_2[1]
+                p1_num_self += info_2[3]
+                p2_num_self += info_2[0]
 
-            ppo.policy_old.reset(memory)
-            ppo.update(memory)
+        ppo.policy_old.reset(memory)
+        ppo.update(memory)
 
-            print("=" * 10)
+        print("=" * 10)
 
-            rew_means.append(
-                {
-                    "episode": i_episode * num_steps + meta_t,
-                    "rew_0": running_reward.mean().item(),
-                    "rew_1": opp_running_reward.mean().item(),
-                    "other_coin_count_0": p1_num_opp.float().mean().item(),
-                    "other_coin_count_1": p2_num_opp.float().mean().item(),
-                    "own_coin_count_0": p1_num_self.float().mean().item(),
-                    "own_coin_count_1": p2_num_self.float().mean().item(),
-                    "total_coin_count_0": p1_num_self.float().mean().item() + p1_num_opp.float().mean().item(),
-                    "total_coin_count_1": p2_num_self.float().mean().item() + p2_num_opp.float().mean().item(),
-                }
-            )
-            print(rew_means[-1])
+        rew_means.append(
+            {
+                "episode": i_episode,
+                "rew": running_reward.mean().item(),
+                "opp_rew": opp_running_reward.mean().item(),
+                "p1_opp": p1_num_opp.float().mean().item(),
+                "p2_opp": p2_num_opp.float().mean().item(),
+                "p1_self": p1_num_self.float().mean().item(),
+                "p2_self": p2_num_self.float().mean().item(),
+            }
+        )
+        print(rew_means[-1])
 
         if i_episode % save_freq == 0:
             ppo.save(os.path.join(name, f"{i_episode}.pth"))

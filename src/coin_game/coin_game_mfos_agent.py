@@ -27,6 +27,7 @@ class ActorCriticMFOS(nn.Module):
         self.n_out_channels = n_out_channels
         self.space = n_out_channels
 
+        # Inner actor
         self.conv_a_0 = nn.Conv2d(input_shape[0], n_out_channels, kernel_size=3, stride=1, padding="same", padding_mode="circular")
         self.conv_a_1 = nn.Conv2d(n_out_channels, n_out_channels, kernel_size=3, stride=1, padding="same", padding_mode="circular")
         self.linear_a_0 = nn.Linear(n_out_channels * input_shape[1] * input_shape[2], self.space)
@@ -34,6 +35,7 @@ class ActorCriticMFOS(nn.Module):
         self.GRU_a = nn.GRU(input_size=self.space, hidden_size=self.space)
         self.linear_a = nn.Linear(self.space, action_dim)
 
+        # Inner critic
         self.conv_v_0 = nn.Conv2d(input_shape[0], n_out_channels, kernel_size=3, stride=1, padding="same", padding_mode="circular")
         self.conv_v_1 = nn.Conv2d(n_out_channels, n_out_channels, kernel_size=3, stride=1, padding="same", padding_mode="circular")
         self.linear_v_0 = nn.Linear(n_out_channels * input_shape[1] * input_shape[2], self.space)
@@ -41,6 +43,7 @@ class ActorCriticMFOS(nn.Module):
         self.GRU_v = nn.GRU(input_size=self.space, hidden_size=self.space)
         self.linear_v = nn.Linear(self.space, 1)
 
+        # Outer meta-policy outputting a conditioning vector
         self.conv_t_0 = nn.Conv2d(input_shape[0], n_out_channels, kernel_size=3, stride=1, padding="same", padding_mode="circular")
         self.conv_t_1 = nn.Conv2d(n_out_channels, n_out_channels, kernel_size=3, stride=1, padding="same", padding_mode="circular")
         self.linear_t_0 = nn.Linear(n_out_channels * input_shape[1] * input_shape[2], self.space)
