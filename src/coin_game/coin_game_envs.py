@@ -5,7 +5,7 @@ import torch
 import numpy as np
 from coin_game_ppo_agent import PPO, Memory
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
 
 class CoinGameStats:
@@ -41,7 +41,7 @@ class CoinGameStats:
 
         for agent_idx in range(self.num_players):
             self.total_coin_count[agent_idx] += self.own_coin_count[agent_idx] + self.other_coin_count[agent_idx]
-            self.running_rewards_per_batch[agent_idx] += rewards[agent_idx].mean()
+            self.running_rewards_per_batch[agent_idx] += rewards[agent_idx].mean().item()
 
     def _log_episode_agent(self, idx):
         agent_logs = {f"reward": self.running_rewards_per_batch[idx].item(),
