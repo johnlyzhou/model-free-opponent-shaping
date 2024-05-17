@@ -5,13 +5,13 @@ import os.path as osp
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 RECIPROCATOR_ARGS = {
-    "rr_weight": 5.0,
+    "rr_weight": 10.0,
     "gamma": 0.96,
-    "buffer_size": 5,
-    "target_period": 10
+    "buffer_size": 2,
+    "target_period": 1
 }
 
-RECIPROCATOR_TAU = 0.02
+RECIPROCATOR_TAU = 1.0
 
 
 def ipd_batched(bs, gamma_inner=0.96):
@@ -473,7 +473,7 @@ class NonMfosMetaGames:
             grad = get_gradient(L_rr.sum(), self.p2_th_ba)
             with torch.no_grad():
                 self.p2_th_ba -= grad * self.lr
-            self.analytic_rr_p2.update_baseline(th_ba, tau=0.02)
+            self.analytic_rr_p2.update_baseline(th_ba, tau=RECIPROCATOR_TAU)
         elif self.p2 == "TFT":
             pass
         elif self.p2 == "STATIC":
