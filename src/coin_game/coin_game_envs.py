@@ -9,7 +9,7 @@ device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
 
 class CoinGameStats:
-    def __init__(self, device: torch.device, num_players: int = 2, save_dir: str = 'logs', save_interval: int = 50):
+    def __init__(self, device: torch.device, num_players: int = 2, save_dir: str = 'my_logs', save_interval: int = 50):
         self.episode_count = 0
         self.meta_episode_count = 0
         self.num_players = num_players
@@ -23,6 +23,9 @@ class CoinGameStats:
         self.total_coin_count = torch.zeros(num_players, device=device)
         self.logs = []
         self.outer_logs = []
+
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
 
     def update(self, rewards: list, info: tuple):
         """
