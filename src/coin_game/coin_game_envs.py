@@ -48,9 +48,9 @@ class CoinGameStats:
 
     def _log_episode_agent(self, idx):
         agent_logs = {f"reward": self.running_rewards_per_batch[idx].item(),
-                      "own_coin_count": self.own_coin_count[idx].item() / self.batch_size,
-                      "other_coin_count": self.other_coin_count[idx].item() / self.batch_size,
-                      "total_coin_count": self.total_coin_count[idx].item() / self.batch_size, }
+                      "own_coin_count": self.own_coin_count[idx].item(),
+                      "other_coin_count": self.other_coin_count[idx].item(),
+                      "total_coin_count": self.total_coin_count[idx].item()}
         return agent_logs
 
     def log_episode(self, verbose: bool = False):
