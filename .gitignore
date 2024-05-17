@@ -1,0 +1,4 @@
+.DS_Store
+.idea/
+results/
+src/__pycache__/
