@@ -3,7 +3,7 @@ import os
 import json
 import numpy as np
 from coin_game_envs import CoinGamePPO, SymmetricCoinGame
-from coin_game.coin_game_mfos_agent import MemoryMFOS, PPOMFOS
+from coin_game_mfos_agent import MemoryMFOS, PPOMFOS
 import argparse
 
 

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical
+from tqdm import tqdm
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -119,7 +120,7 @@ class PPO:
         old_logprobs = torch.stack(memory.logprobs).detach().flatten(end_dim=1)
 
         # Optimize policy for K epochs:
-        for _ in range(self.K_epochs):
+        for _ in tqdm(range(self.K_epochs)):
             # Evaluating old actions and values :
             logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
 
