@@ -41,9 +41,10 @@ class CoinGameStats:
         self.other_coin_count[0] += info[1].item() / self.batch_size
         self.own_coin_count[1] += info[3].item() / self.batch_size
         self.other_coin_count[1] += info[2].item() / self.batch_size
+        self.total_coin_count[0] += (info[0] + info[1]).item() / self.batch_size
+        self.total_coin_count[1] += (info[2] + info[3]).item() / self.batch_size
 
         for agent_idx in range(self.num_players):
-            self.total_coin_count[agent_idx] += self.own_coin_count[agent_idx] + self.other_coin_count[agent_idx]
             self.running_rewards_per_batch[agent_idx] += rewards[agent_idx].mean().item()
 
     def _log_episode_agent(self, idx):
