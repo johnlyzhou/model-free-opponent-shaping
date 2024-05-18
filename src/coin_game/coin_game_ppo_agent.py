@@ -91,9 +91,9 @@ class PPO:
         self.K_epochs = K_epochs
         self.device = device
 
-        self.policy = ActorCritic(state_dim, action_dim, n_latent_var, n_latent_var // 4).to(self.device)
+        self.policy = ActorCritic(state_dim, action_dim, n_latent_var, n_latent_var // 4).to(self.device).float()
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=lr)
-        self.policy_old = ActorCritic(state_dim, action_dim, n_latent_var, n_latent_var // 4).to(self.device)
+        self.policy_old = ActorCritic(state_dim, action_dim, n_latent_var, n_latent_var // 4).to(self.device).float()
         self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.MseLoss = nn.MSELoss()
