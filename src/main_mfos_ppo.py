@@ -14,11 +14,12 @@ parser.add_argument("--entropy", type=float, default=0.01)
 parser.add_argument("--exp-name", type=str, default="test")
 parser.add_argument("--checkpoint", type=str, default="")
 parser.add_argument("--mamaml-id", type=int, default=0)
+parser.add_argument("--device", type=str, default="cpu")
 args = parser.parse_args()
 
 
 if __name__ == "__main__":
-    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+    device = torch.device(args.device)
     ############################################
     K_epochs = 4  # update policy for K epochs
 
@@ -49,7 +50,7 @@ if __name__ == "__main__":
     #############################################
 
     # creating environment
-    env = MetaGames(batch_size, opponent=args.opponent, game=args.game, mmapg_id=args.mamaml_id)
+    env = MetaGames(batch_size, device, opponent=args.opponent, game=args.game, mmapg_id=args.mamaml_id)
 
     action_dim = env.d  # 5 for IPD
     state_dim = env.d * 2  # concatenation of both policies so 10
@@ -58,7 +59,7 @@ if __name__ == "__main__":
     # This is actually the outer MFOS agent that is outputting a 5-d policy to play against the inner PPO agent
     #  at each step, i.e., a full inner episode
     memory = Memory()
-    ppo = PPO(state_dim, action_dim, lr, betas, gamma, K_epochs, eps_clip, args.entropy)
+    ppo = PPO(state_dim, action_dim, lr, betas, gamma, K_epochs, eps_clip, args.entropy, device)
 
     if args.checkpoint:
         ppo.load(args.checkpoint)

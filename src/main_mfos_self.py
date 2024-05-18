@@ -12,11 +12,13 @@ parser.add_argument("--game", type=str, required=True)
 parser.add_argument("--entropy", type=float, default=0.01)
 parser.add_argument("--exp-name", type=str, default="")
 parser.add_argument("--checkpoint", type=str, default="")
+parser.add_argument("--device", type=str, default="cpu")
 args = parser.parse_args()
 
 
 if __name__ == "__main__":
     ############################################
+    device = torch.device(args.device)
     K_epochs = 4  # update policy for K epochs
 
     eps_clip = 0.2  # clip parameter for PPO
@@ -45,7 +47,7 @@ if __name__ == "__main__":
     #############################################
 
     # creating environment
-    env = SymmetricMetaGames(batch_size, game=args.game)
+    env = SymmetricMetaGames(batch_size, device, game=args.game)
 
     action_dim = env.d
     state_dim = env.d * 2
@@ -53,10 +55,10 @@ if __name__ == "__main__":
     memory_0 = Memory()
     memory_1 = Memory()
 
-    ppo_0 = PPO(state_dim, action_dim, lr, betas, gamma, K_epochs, eps_clip, entropy=args.entropy)
-    ppo_1 = PPO(state_dim, action_dim, lr, betas, gamma, K_epochs, eps_clip, entropy=args.entropy)
+    ppo_0 = PPO(state_dim, action_dim, lr, betas, gamma, K_epochs, eps_clip, args.entropy, device)
+    ppo_1 = PPO(state_dim, action_dim, lr, betas, gamma, K_epochs, eps_clip, args.entropy, device)
 
-    nl_env = MetaGames(batch_size, game=args.game)
+    nl_env = MetaGames(batch_size, device, game=args.game)
 
     print(lr, betas)
     # training loop

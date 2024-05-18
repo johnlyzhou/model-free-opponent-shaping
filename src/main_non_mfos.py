@@ -8,10 +8,11 @@ from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--exp-name", type=str, default="")
+parser.add_argument("--device", type=str, default="cpu")
 args = parser.parse_args()
 
 if __name__ == "__main__":
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device(args.device)
     batch_size = 8192
     num_steps = 100
     name = args.exp_name
@@ -29,7 +30,7 @@ if __name__ == "__main__":
                 if p1 == "MAMAML" or p2 == "MAMAML":
                     for id in range(10):
                         print(f"Running {game} with {p1} vs. {p2}: ID {id}")
-                        env = NonMfosMetaGames(batch_size, game=game, p1=p1, p2=p2, mmapg_id=id)
+                        env = NonMfosMetaGames(batch_size, device, game=game, p1=p1, p2=p2, mmapg_id=id)
                         env.reset()
                         running_rew_0 = torch.zeros(batch_size).to(device)
                         running_rew_1 = torch.zeros(batch_size).to(device)
@@ -55,7 +56,7 @@ if __name__ == "__main__":
                         print(f"r0: {mean_rew_0}, r1: {mean_rew_1}")
                 else:
                     print(f"Running {game} with {p1} vs. {p2}")
-                    env = NonMfosMetaGames(batch_size, game=game, p1=p1, p2=p2)
+                    env = NonMfosMetaGames(batch_size, device, game=game, p1=p1, p2=p2)
                     env.reset()
                     running_rew_0 = torch.zeros(batch_size).to(device)
                     running_rew_1 = torch.zeros(batch_size).to(device)
