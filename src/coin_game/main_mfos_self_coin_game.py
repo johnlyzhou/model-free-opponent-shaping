@@ -7,14 +7,7 @@ from coin_game_mfos_agent import MemoryMFOS, PPOMFOS
 import argparse
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--exp-name", type=str, default="")
-parser.add_argument("--device", type=str, default="cpu")
-args = parser.parse_args()
-
-if __name__ == "__main__":
-    ############## Hyperparameters ##############
-    device = torch.device(args.device)
+def main_mfos_self_coin_game(save_dir, device):
     batch_size = 512  # 8192 #, 32768
     state_dim = [7, 3, 3]
     action_dim = 4
@@ -42,13 +35,6 @@ if __name__ == "__main__":
 
     lamb = 1.0
     lamb_anneal = 0.005
-    name = args.exp_name
-
-    print(f"RUNNING NAME: {name}")
-    if not os.path.isdir(name):
-        os.mkdir(name)
-        with open(os.path.join(name, "commandline_args.txt"), "w") as f:
-            json.dump(args.__dict__, f, indent=2)
 
     #############################################
 
@@ -203,8 +189,25 @@ if __name__ == "__main__":
         print(rew_means[-1])
 
         if i_episode % save_freq == 0:
-            ppo_0.save(os.path.join(name, f"{i_episode}_0.pth"))
-            ppo_1.save(os.path.join(name, f"{i_episode}_1.pth"))
-            with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
+            ppo_0.save(os.path.join(save_dir, f"{i_episode}_0.pth"))
+            ppo_1.save(os.path.join(save_dir, f"{i_episode}_1.pth"))
+            with open(os.path.join(save_dir, f"out_{i_episode}.json"), "w") as f:
                 json.dump(rew_means, f)
             print(f"SAVING! {i_episode}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--exp-name", type=str, default="")
+    parser.add_argument("--device", type=str, default="cpu")
+    args = parser.parse_args()
+    device = torch.device(args.device)
+    name = args.exp_name
+
+    print(f"RUNNING NAME: {name}")
+    if not os.path.isdir(name):
+        os.mkdir(name)
+        with open(os.path.join(name, "commandline_args.txt"), "w") as f:
+            json.dump(args.__dict__, f, indent=2)
+
+    main_mfos_self_coin_game(name, device)
