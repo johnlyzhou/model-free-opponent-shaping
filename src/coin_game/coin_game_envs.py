@@ -5,8 +5,6 @@ import torch
 import numpy as np
 from coin_game_ppo_agent import PPO, Memory
 
-device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
-
 
 class CoinGameStats:
     def __init__(self, device: torch.device, num_players: int = 2, save_dir: str = 'my_logs', save_interval: int = 50):
@@ -93,7 +91,7 @@ class CoinGameGPU:
 
     NUM_AGENTS = 2
     NUM_ACTIONS = 4
-    MOVES = torch.stack(
+    moves = torch.stack(
         [
             torch.LongTensor([0, 1]),
             torch.LongTensor([0, -1]),
@@ -101,12 +99,14 @@ class CoinGameGPU:
             torch.LongTensor([-1, 0]),
         ],
         dim=0,
-    ).to(device)
+    )
 
-    def __init__(self, max_steps, batch_size, grid_size=3):
+    def __init__(self, max_steps, batch_size, device, grid_size=3):
         self.max_steps = max_steps
         self.grid_size = grid_size
         self.batch_size = batch_size
+        self.device = device
+        self.MOVES = self.moves.to(device)
         # The 4 channels stand for 2 players and 2 coin positions
         self.ob_space_shape = [4, grid_size, grid_size]
         self.NUM_STATES = np.prod(self.ob_space_shape)
@@ -116,14 +116,14 @@ class CoinGameGPU:
     def reset(self):
         self.step_count = 0
 
-        red_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
+        red_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(self.device)
         self.red_pos = torch.stack((red_pos_flat // self.grid_size, red_pos_flat % self.grid_size), dim=-1)
 
-        blue_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
+        blue_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(self.device)
         self.blue_pos = torch.stack((blue_pos_flat // self.grid_size, blue_pos_flat % self.grid_size), dim=-1)
 
-        red_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
-        blue_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
+        red_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(self.device)
+        blue_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(self.device)
 
         self.red_coin_pos = torch.stack((red_coin_pos_flat // self.grid_size, red_coin_pos_flat % self.grid_size),
                                         dim=-1)
@@ -137,13 +137,13 @@ class CoinGameGPU:
     def _generate_coins(self):
         mask_red = torch.logical_or(self._same_pos(self.red_coin_pos, self.blue_pos),
                                     self._same_pos(self.red_coin_pos, self.red_pos))
-        red_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)[mask_red]
+        red_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(self.device)[mask_red]
         self.red_coin_pos[mask_red] = torch.stack(
             (red_coin_pos_flat // self.grid_size, red_coin_pos_flat % self.grid_size), dim=-1)
 
         mask_blue = torch.logical_or(self._same_pos(self.blue_coin_pos, self.blue_pos),
                                      self._same_pos(self.blue_coin_pos, self.red_pos))
-        blue_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)[
+        blue_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(self.device)[
             mask_blue]
         self.blue_coin_pos[mask_blue] = torch.stack(
             (blue_coin_pos_flat // self.grid_size, blue_coin_pos_flat % self.grid_size), dim=-1)
@@ -158,7 +158,7 @@ class CoinGameGPU:
         red_coin_pos_flat = self.red_coin_pos[:, 0] * self.grid_size + self.red_coin_pos[:, 1]
         blue_coin_pos_flat = self.blue_coin_pos[:, 0] * self.grid_size + self.blue_coin_pos[:, 1]
 
-        state = torch.zeros((self.batch_size, 4, self.grid_size * self.grid_size)).to(device)
+        state = torch.zeros((self.batch_size, 4, self.grid_size * self.grid_size)).to(self.device)
 
         state[:, 0].scatter_(1, red_pos_flat[:, None], 1)
         state[:, 1].scatter_(1, blue_pos_flat[:, None], 1)
@@ -176,13 +176,13 @@ class CoinGameGPU:
         self.blue_pos = (self.blue_pos + self.MOVES[ac1]) % self.grid_size
 
         # Compute rewards
-        red_reward = torch.zeros(self.batch_size).to(device)
+        red_reward = torch.zeros(self.batch_size).to(self.device)
         red_red_matches = self._same_pos(self.red_pos, self.red_coin_pos)
         red_reward[red_red_matches] += 1
         red_blue_matches = self._same_pos(self.red_pos, self.blue_coin_pos)
         red_reward[red_blue_matches] += 1
 
-        blue_reward = torch.zeros(self.batch_size).to(device)
+        blue_reward = torch.zeros(self.batch_size).to(self.device)
         blue_red_matches = self._same_pos(self.blue_pos, self.red_coin_pos)
         blue_reward[blue_red_matches] += 1
         blue_blue_matches = self._same_pos(self.blue_pos, self.blue_coin_pos)
@@ -196,27 +196,28 @@ class CoinGameGPU:
         state = self._generate_state()
         observations = [state, state]
         if self.step_count >= self.max_steps:
-            done = torch.ones(self.batch_size).to(device)
+            done = torch.ones(self.batch_size).to(self.device)
         else:
-            done = torch.zeros(self.batch_size).to(device)
+            done = torch.zeros(self.batch_size).to(self.device)
 
         return observations, reward, done, (
         red_red_matches.sum(), red_blue_matches.sum(), blue_red_matches.sum(), blue_blue_matches.sum())
 
 
 class SymmetricCoinGame:
-    def __init__(self, b, inner_ep_len, gamma_inner=0.96):
-        self.env = CoinGameGPU(max_steps=inner_ep_len - 1, batch_size=b)
+    def __init__(self, b, inner_ep_len, device, gamma_inner=0.96):
+        self.env = CoinGameGPU(inner_ep_len - 1, b, device)
         self.logs = CoinGameStats(device=torch.device('cpu'))
         self.inner_ep_len = inner_ep_len
         self.b = b
+        self.device = device
 
     def reset(self):
         self.env_states = self.env.reset()[0]
-        self.rewards_inner = torch.Tensor(np.array([0.0] * self.b)).to(device)
-        self.rewards_outer = torch.Tensor(np.array([0.0] * self.b)).to(device)
-        self.dones_inner = torch.Tensor(np.array([0.0] * self.b)).to(device)
-        self.dones_outer = torch.Tensor(np.array([0.0] * self.b)).to(device)
+        self.rewards_inner = torch.Tensor(np.array([0.0] * self.b)).to(self.device)
+        self.rewards_outer = torch.Tensor(np.array([0.0] * self.b)).to(self.device)
+        self.dones_inner = torch.Tensor(np.array([0.0] * self.b)).to(self.device)
+        self.dones_outer = torch.Tensor(np.array([0.0] * self.b)).to(self.device)
         self.logs.log_meta_episode()
         return self._prep_state()
 
@@ -237,9 +238,9 @@ class SymmetricCoinGame:
             info = None
             self.env_states = self.env.reset()[0]
             self.logs.log_episode(verbose=True)
-            self.rewards_inner = torch.Tensor(np.array([0.0] * self.b)).to(device)
-            self.rewards_outer = torch.Tensor(np.array([0.0] * self.b)).to(device)
-            self.dones_inner = torch.Tensor(np.array([0.0] * self.b)).to(device)
+            self.rewards_inner = torch.Tensor(np.array([0.0] * self.b)).to(self.device)
+            self.rewards_outer = torch.Tensor(np.array([0.0] * self.b)).to(self.device)
+            self.dones_inner = torch.Tensor(np.array([0.0] * self.b)).to(self.device)
         else:
             self.env_states, rewards, self.dones_inner, info = self.env.step(actions)
             self.logs.update(rewards, info)
@@ -249,12 +250,13 @@ class SymmetricCoinGame:
 
 
 class CoinGamePPO:
-    def __init__(self, b, inner_ep_len, gamma_inner=0.96, first=False):
-        self.env = CoinGameGPU(max_steps=inner_ep_len - 1, batch_size=b)
+    def __init__(self, b, inner_ep_len, device, gamma_inner=0.96, first=False):
+        self.env = CoinGameGPU(inner_ep_len - 1, b, device)
         self.logs = CoinGameStats(device=torch.device('cpu'))
         self.inner_ep_len = inner_ep_len
         self.b = b
         self.first = first
+        self.device = device
 
     def reset(self):
         """
@@ -277,10 +279,10 @@ class CoinGamePPO:
 
         self.env_states = self.env.reset()
         self.logs.log_meta_episode()
-        self.rewards_inner = torch.zeros(self.b).to(device)
-        self.rewards_outer = torch.zeros(self.b).to(device)
-        self.dones_inner = torch.zeros(self.b).to(device)
-        self.dones_outer = torch.zeros(self.b).to(device)
+        self.rewards_inner = torch.zeros(self.b).to(self.device)
+        self.rewards_outer = torch.zeros(self.b).to(self.device)
+        self.dones_inner = torch.zeros(self.b).to(self.device)
+        self.dones_outer = torch.zeros(self.b).to(self.device)
         self.t = 0
 
         return self._prep_state()
@@ -300,10 +302,10 @@ class CoinGamePPO:
             assert self.t % self.inner_ep_len == 0
             self.env_states = self.env.reset()
             self.logs.log_episode(verbose=True)
-            self.rewards_inner = torch.zeros(self.b).to(device)
-            self.rewards_outer = torch.zeros(self.b).to(device)
-            self.dones_inner = torch.zeros(self.b).to(device)
-            self.dones_outer = torch.zeros(self.b).to(device)
+            self.rewards_inner = torch.zeros(self.b).to(self.device)
+            self.rewards_outer = torch.zeros(self.b).to(self.device)
+            self.dones_inner = torch.zeros(self.b).to(self.device)
+            self.dones_outer = torch.zeros(self.b).to(self.device)
             self.inner_agent.update(self.inner_memory)
             self.inner_memory.clear_memory()
         else:

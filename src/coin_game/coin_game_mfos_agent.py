@@ -4,8 +4,6 @@ import torch.nn.functional as F
 from torch.distributions import Categorical
 from tqdm import tqdm
 
-device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
-
 
 class MemoryMFOS:
     def __init__(self):
@@ -22,11 +20,12 @@ class MemoryMFOS:
 
 
 class ActorCriticMFOS(nn.Module):
-    def __init__(self, input_shape, action_dim, n_out_channels, batch_size):
+    def __init__(self, input_shape, action_dim, n_out_channels, batch_size, device):
         super(ActorCriticMFOS, self).__init__()
         self.batch_size = batch_size
         self.n_out_channels = n_out_channels
         self.space = n_out_channels
+        self.device = device
 
         # Inner actor
         self.conv_a_0 = nn.Conv2d(input_shape[0], n_out_channels, kernel_size=3, stride=1, padding="same", padding_mode="circular")
@@ -76,10 +75,10 @@ class ActorCriticMFOS(nn.Module):
             x = torch.sigmoid(x)
             self.th_bh = x
         else:
-            self.th_bh = torch.ones(self.batch_size, self.space).to(device)
+            self.th_bh = torch.ones(self.batch_size, self.space).to(self.device)
 
-        self.ah_obh = torch.zeros(1, self.batch_size, self.space).to(device)
-        self.vh_obh = torch.zeros(1, self.batch_size, self.space).to(device)
+        self.ah_obh = torch.zeros(1, self.batch_size, self.space).to(self.device)
+        self.vh_obh = torch.zeros(1, self.batch_size, self.space).to(self.device)
 
         self.state_traj_bs = []
         self.action_traj_b = []
@@ -132,7 +131,7 @@ class ActorCriticMFOS(nn.Module):
         # ACTIVATION HERE?
         x = self.linear_t(x)  # Tbh
         x = torch.sigmoid(x)
-        th_Tbh = torch.cat((torch.ones(1, self.batch_size, self.space).to(device), x[:-1]), dim=0)
+        th_Tbh = torch.cat((torch.ones(1, self.batch_size, self.space).to(self.device), x[:-1]), dim=0)
 
         x = self.conv_a_0(state_Bs)
         x = F.relu(x)
@@ -171,16 +170,18 @@ class ActorCriticMFOS(nn.Module):
 
 
 class PPOMFOS:
-    def __init__(self, state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, batch_size, inner_ep_len, tau=None):
+    def __init__(self, state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, batch_size,
+                 inner_ep_len, device, tau=None):
         self.lr = lr
         #         self.betas = betas
         self.gamma = gamma
         self.eps_clip = eps_clip
         self.K_epochs = K_epochs
+        self.device = device
 
-        self.policy = ActorCriticMFOS(state_dim, action_dim, n_latent_var, batch_size).to(device)
+        self.policy = ActorCriticMFOS(state_dim, action_dim, n_latent_var, batch_size, device).to(self.device)
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=lr)
-        self.policy_old = ActorCriticMFOS(state_dim, action_dim, n_latent_var, batch_size).to(device)
+        self.policy_old = ActorCriticMFOS(state_dim, action_dim, n_latent_var, batch_size, device).to(self.device)
         self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.MseLoss = nn.MSELoss()
@@ -207,11 +208,11 @@ class PPOMFOS:
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)  # (Tt)b
 
         # convert list to tensor
-        old_states = torch.stack(memory.states_traj).to(device).detach()  # T,t,b,s
+        old_states = torch.stack(memory.states_traj).to(self.device).detach()  # T,t,b,s
         del memory.states_traj[:]
-        old_actions = torch.stack(memory.actions_traj).to(device).detach()
+        old_actions = torch.stack(memory.actions_traj).to(self.device).detach()
         del memory.actions_traj[:]
-        old_logprobs = torch.stack(memory.logprobs_traj).to(device).detach().flatten(end_dim=-2)
+        old_logprobs = torch.stack(memory.logprobs_traj).to(self.device).detach().flatten(end_dim=-2)
         del memory.logprobs_traj[:]
 
         del memory.rewards[:]

@@ -8,9 +8,11 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--exp-name", type=str, default="")
+parser.add_argument("--device", type=str, default="cpu")
 args = parser.parse_args()
 
 if __name__ == "__main__":
+    device = torch.device(args.device)
     ############## Hyperparameters ##############
     batch_size = 512  # 8192 #, 32768
     state_dim = [7, 3, 3]
@@ -46,7 +48,8 @@ if __name__ == "__main__":
     #############################################
 
     memory = MemoryMFOS()
-    ppo = PPOMFOS(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, batch_size, inner_ep_len)
+    ppo = PPOMFOS(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, batch_size, inner_ep_len,
+                  device)
     print(lr, betas)
     print(sum(p.numel() for p in ppo.policy_old.parameters() if p.requires_grad))
     # logging variables
@@ -56,7 +59,7 @@ if __name__ == "__main__":
     rew_means = []
 
     # env
-    env = CoinGamePPO(batch_size, inner_ep_len)
+    env = CoinGamePPO(batch_size, inner_ep_len, device)
 
     # training loop
     for i_episode in range(1, max_episodes + 1):

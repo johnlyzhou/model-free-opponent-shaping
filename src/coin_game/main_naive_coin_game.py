@@ -2,16 +2,18 @@ import torch
 import os
 import json
 from coin_game_envs import CoinGameGPU
-from coin_game.coin_game_ppo_agent import PPO, Memory
+from coin_game_ppo_agent import PPO, Memory
 import argparse
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--exp-name", type=str, default="")
+parser.add_argument("--device", type=str, default="cpu")
 args = parser.parse_args()
 
 if __name__ == "__main__":
     ############## Hyperparameters ##############
+    device = torch.device(args.device)
     batch_size = 512  # 8192 #, 32768
     state_dim = [4, 3, 3]
     action_dim = 4
@@ -40,9 +42,9 @@ if __name__ == "__main__":
     #############################################
 
     memory_0 = Memory()
-    ppo_0 = PPO(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip)
+    ppo_0 = PPO(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, device)
     memory_1 = Memory()
-    ppo_1 = PPO(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip)
+    ppo_1 = PPO(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, device)
 
     print(lr, betas)
     print(sum(p.numel() for p in ppo_0.policy_old.parameters() if p.requires_grad))
@@ -53,7 +55,7 @@ if __name__ == "__main__":
     rew_means = []
 
     # env
-    env = CoinGameGPU(batch_size=batch_size, max_steps=inner_ep_len - 1)
+    env = CoinGameGPU(inner_ep_len - 1, batch_size, device)
 
     # training loop
     for i_episode in range(1, max_episodes + 1):

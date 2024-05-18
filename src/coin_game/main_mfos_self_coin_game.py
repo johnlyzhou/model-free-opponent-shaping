@@ -9,10 +9,12 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--exp-name", type=str, default="")
+parser.add_argument("--device", type=str, default="cpu")
 args = parser.parse_args()
 
 if __name__ == "__main__":
     ############## Hyperparameters ##############
+    device = torch.device(args.device)
     batch_size = 512  # 8192 #, 32768
     state_dim = [7, 3, 3]
     action_dim = 4
@@ -51,10 +53,12 @@ if __name__ == "__main__":
     #############################################
 
     memory_0 = MemoryMFOS()
-    ppo_0 = PPOMFOS(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, batch_size, inner_ep_len)
+    ppo_0 = PPOMFOS(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, batch_size, inner_ep_len,
+                    device)
 
     memory_1 = MemoryMFOS()
-    ppo_1 = PPOMFOS(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, batch_size, inner_ep_len)
+    ppo_1 = PPOMFOS(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, batch_size, inner_ep_len,
+                    device)
 
     print(lr, betas)
     print(sum(p.numel() for p in ppo_0.policy_old.parameters() if p.requires_grad))
@@ -62,9 +66,9 @@ if __name__ == "__main__":
     # running_reward = 0
     rew_means = []
 
-    env = SymmetricCoinGame(batch_size, inner_ep_len)
+    env = SymmetricCoinGame(batch_size, inner_ep_len, device)
     # env
-    nl_env = CoinGamePPO(batch_size, inner_ep_len)
+    nl_env = CoinGamePPO(batch_size, inner_ep_len, device)
 
     # training loop
     for i_episode in range(1, max_episodes + 1):
@@ -79,8 +83,8 @@ if __name__ == "__main__":
             print("v opponent")
             state_0, state_1 = env.reset()
 
-            running_reward_0 = torch.zeros(batch_size).cuda()
-            running_reward_1 = torch.zeros(batch_size).cuda()
+            running_reward_0 = torch.zeros(batch_size).to(device)
+            running_reward_1 = torch.zeros(batch_size).to(device)
             p1_num_opp, p2_num_opp, p1_num_self, p2_num_self = 0, 0, 0, 0
             for t in range(num_steps):
                 # Running policy_old:
@@ -132,8 +136,8 @@ if __name__ == "__main__":
             )
         else:
             state = nl_env.reset()
-            running_reward_0 = torch.zeros(batch_size).cuda()
-            opp_running_reward_0 = torch.zeros(batch_size).cuda()
+            running_reward_0 = torch.zeros(batch_size).to(device)
+            opp_running_reward_0 = torch.zeros(batch_size).to(device)
             p1_num_opp_0, p2_num_opp_0, p1_num_self_0, p2_num_self_0 = 0, 0, 0, 0
             for t in range(num_steps):
                 # Running policy_old:
@@ -156,8 +160,8 @@ if __name__ == "__main__":
             memory_0.clear_memory()
 
             state = nl_env.reset()
-            running_reward_1 = torch.zeros(batch_size).cuda()
-            opp_running_reward_1 = torch.zeros(batch_size).cuda()
+            running_reward_1 = torch.zeros(batch_size).to(device)
+            opp_running_reward_1 = torch.zeros(batch_size).to(device)
             p1_num_opp_1, p2_num_opp_1, p1_num_self_1, p2_num_self_1 = 0, 0, 0, 0
             for t in range(num_steps):
                 # Running policy_old:
