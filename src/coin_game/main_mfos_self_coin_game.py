@@ -60,6 +60,8 @@ def main_mfos_self_coin_game(save_dir, device):
     nl_env = CoinGamePPO(batch_size, inner_ep_len, device, save_dir=save_dir)
 
     opponent_history = []
+    outer_logs_0 = []
+    outer_logs_1 = []
 
     # training loop
     for i_episode in range(1, max_episodes + 1):
@@ -71,7 +73,6 @@ def main_mfos_self_coin_game(save_dir, device):
             lamb -= lamb_anneal
 
         if np.random.random() > lamb:
-            opponent_history.append(1)
             print("v opponent")
             state_0, state_1 = env.reset()
 
@@ -103,6 +104,11 @@ def main_mfos_self_coin_game(save_dir, device):
                     p1_num_self += info_2[3]
                     p2_num_self += info_2[0]
 
+            opponent_history.append(1)
+            env.logs.log_meta_episode(save=False)
+            outer_logs_0.append(env.logs.outer_logs[-1])
+            outer_logs_1.append(env.logs.outer_logs[-1])
+
             ppo_0.policy_old.reset(memory_0)
             ppo_1.policy_old.reset(memory_1)
 
@@ -111,7 +117,6 @@ def main_mfos_self_coin_game(save_dir, device):
 
             memory_0.clear_memory()
             memory_1.clear_memory()
-
             # print(f"reward 0: {running_reward_0.mean()}")
             # print(f"reward 1: {running_reward_1.mean()}")
             rew_means.append(
@@ -127,7 +132,7 @@ def main_mfos_self_coin_game(save_dir, device):
                 }
             )
         else:
-            opponent_history.append(0)
+            # Both agent 1 and 2 play against the NL
             state = nl_env.reset()
             running_reward_0 = torch.zeros(batch_size).to(device)
             opp_running_reward_0 = torch.zeros(batch_size).to(device)
@@ -147,6 +152,10 @@ def main_mfos_self_coin_game(save_dir, device):
                     p2_num_opp_0 += info_2[1]
                     p1_num_self_0 += info_2[3]
                     p2_num_self_0 += info_2[0]
+
+            opponent_history.append(0)
+            nl_env.logs.log_meta_episode(save=False)
+            outer_logs_0.append(nl_env.logs.outer_logs[-1])
 
             ppo_0.policy_old.reset(memory_0)
             ppo_0.update(memory_0)
@@ -171,6 +180,9 @@ def main_mfos_self_coin_game(save_dir, device):
                     p2_num_opp_1 += info_2[1]
                     p1_num_self_1 += info_2[3]
                     p2_num_self_1 += info_2[0]
+
+            nl_env.logs.log_meta_episode(save=False)
+            outer_logs_1.append(nl_env.logs.outer_logs[-1])
 
             ppo_1.policy_old.reset(memory_1)
             ppo_1.update(memory_1)
@@ -202,14 +214,18 @@ def main_mfos_self_coin_game(save_dir, device):
         if i_episode % save_freq == 0:
             ppo_0.save(os.path.join(old_log_path, f"{i_episode}_0.pth"))
             ppo_1.save(os.path.join(old_log_path, f"{i_episode}_1.pth"))
-            with open(os.path.join(old_log_path, f"out_{i_episode}.json"), "w") as f:
-                json.dump(rew_means, f)
+
+            with open(os.path.join(save_dir, "mfos_0", f"out_{i_episode}.json"), "w") as f:
+                json.dump(outer_logs_0, f)
+            with open(os.path.join(save_dir, "mfos_1", f"out_{i_episode}.json"), "w") as f:
+                json.dump(outer_logs_1, f)
             with open(os.path.join(save_dir, f"opponent_history_{i_episode}.json"), "w") as f:
                 json.dump(opponent_history, f)
+
+            with open(os.path.join(old_log_path, f"out_{i_episode}.json"), "w") as f:
+                json.dump(rew_means, f)
             print(f"SAVING! {i_episode}")
 
-    env.logs.save()
-    nl_env.logs.save()
 
 
 if __name__ == "__main__":

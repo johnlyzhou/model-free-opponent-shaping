@@ -59,7 +59,7 @@ class CoinGameStats:
         self._reset()
         self.episode_count += 1
 
-    def log_meta_episode(self):
+    def log_meta_episode(self, save: bool = True):
         if len(self.logs) == 0:
             print("No episodes to log.")
             return
@@ -77,6 +77,11 @@ class CoinGameStats:
         self.own_coin_count = torch.zeros(self.num_players, device=self.device)
         self.other_coin_count = torch.zeros(self.num_players, device=self.device)
         self.total_coin_count = torch.zeros(self.num_players, device=self.device)
+
+    def reset(self):
+        self._reset()
+        self.logs = []
+        self.outer_logs = []
 
     def save(self):
         with open(os.path.join(self.save_dir, f"out_{self.meta_episode_count}.json"), "w") as f:
@@ -218,7 +223,6 @@ class SymmetricCoinGame:
         self.rewards_outer = torch.Tensor(np.array([0.0] * self.b)).to(self.device)
         self.dones_inner = torch.Tensor(np.array([0.0] * self.b)).to(self.device)
         self.dones_outer = torch.Tensor(np.array([0.0] * self.b)).to(self.device)
-        self.logs.log_meta_episode()
         return self._prep_state()
 
     def _prep_state(self):
