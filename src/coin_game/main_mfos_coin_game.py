@@ -25,7 +25,7 @@ def main_mfos_coin_game(name, device):
     eps_clip = 0.2  # clip parameter for PPO
     use_gae = False
 
-    inner_ep_len = 16
+    inner_ep_len = 32
     num_steps = 256
 
     do_sum = False
@@ -46,7 +46,7 @@ def main_mfos_coin_game(name, device):
     rew_means = []
 
     # env
-    env = CoinGamePPO(batch_size, inner_ep_len, device)
+    env = CoinGamePPO(batch_size, inner_ep_len, device, save_dir=f"{name}/my_logs")
 
     # training loop
     for i_episode in range(1, max_episodes + 1):

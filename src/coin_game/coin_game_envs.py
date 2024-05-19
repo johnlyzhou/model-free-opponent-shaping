@@ -205,9 +205,9 @@ class CoinGameGPU:
 
 
 class SymmetricCoinGame:
-    def __init__(self, b, inner_ep_len, device, gamma_inner=0.96):
+    def __init__(self, b, inner_ep_len, device, gamma_inner=0.96, save_dir: str = "my_logs"):
         self.env = CoinGameGPU(inner_ep_len - 1, b, device)
-        self.logs = CoinGameStats(device=torch.device('cpu'))
+        self.logs = CoinGameStats(device=torch.device('cpu'), save_dir=save_dir)
         self.inner_ep_len = inner_ep_len
         self.b = b
         self.device = device
@@ -250,9 +250,9 @@ class SymmetricCoinGame:
 
 
 class CoinGamePPO:
-    def __init__(self, b, inner_ep_len, device, gamma_inner=0.96, first=False):
+    def __init__(self, b, inner_ep_len, device, gamma_inner=0.96, first=False, save_dir: str = "my_logs"):
         self.env = CoinGameGPU(inner_ep_len - 1, b, device)
-        self.logs = CoinGameStats(device=torch.device('cpu'))
+        self.logs = CoinGameStats(device=torch.device('cpu'), save_dir=save_dir)
         self.inner_ep_len = inner_ep_len
         self.b = b
         self.first = first
