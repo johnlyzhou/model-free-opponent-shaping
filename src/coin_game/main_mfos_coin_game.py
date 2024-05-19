@@ -1,3 +1,5 @@
+import pathlib
+
 import torch
 import os
 import json
@@ -97,7 +99,10 @@ def main_mfos_coin_game(name, device):
         )
         print(rew_means[-1])
 
-        old_log_path = f"{name}/old"
+        old_log_path = os.path.join(name, "old")
+        if not os.path.isdir(old_log_path):
+            pathlib.Path(old_log_path).mkdir(parents=True, exist_ok=True)
+
         if i_episode % save_freq == 0:
             ppo.save(os.path.join(old_log_path, f"{i_episode}.pth"))
             with open(os.path.join(old_log_path, f"out_{i_episode}.json"), "w") as f:

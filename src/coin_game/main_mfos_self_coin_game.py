@@ -1,10 +1,13 @@
+import pathlib
+
 import torch
 import os
 import json
 import numpy as np
+import argparse
+
 from src.coin_game.coin_game_envs import CoinGamePPO, SymmetricCoinGame
 from src.coin_game.coin_game_mfos_agent import MemoryMFOS, PPOMFOS
-import argparse
 
 
 def main_mfos_self_coin_game(save_dir, device):
@@ -56,6 +59,8 @@ def main_mfos_self_coin_game(save_dir, device):
     # env
     nl_env = CoinGamePPO(batch_size, inner_ep_len, device, save_dir=name)
 
+    opponent_history = []
+
     # training loop
     for i_episode in range(1, max_episodes + 1):
         print("=" * 10)
@@ -66,6 +71,7 @@ def main_mfos_self_coin_game(save_dir, device):
             lamb -= lamb_anneal
 
         if np.random.random() > lamb:
+            opponent_history.append(1)
             print("v opponent")
             state_0, state_1 = env.reset()
 
@@ -121,6 +127,7 @@ def main_mfos_self_coin_game(save_dir, device):
                 }
             )
         else:
+            opponent_history.append(0)
             state = nl_env.reset()
             running_reward_0 = torch.zeros(batch_size).to(device)
             opp_running_reward_0 = torch.zeros(batch_size).to(device)
@@ -188,12 +195,17 @@ def main_mfos_self_coin_game(save_dir, device):
             )
         print(rew_means[-1])
 
-        old_log_path = f"{save_dir}/old"
+        old_log_path = os.path.join(name, "old")
+        if not os.path.isdir(old_log_path):
+            pathlib.Path(old_log_path).mkdir(parents=True, exist_ok=True)
+
         if i_episode % save_freq == 0:
             ppo_0.save(os.path.join(old_log_path, f"{i_episode}_0.pth"))
             ppo_1.save(os.path.join(old_log_path, f"{i_episode}_1.pth"))
             with open(os.path.join(old_log_path, f"out_{i_episode}.json"), "w") as f:
                 json.dump(rew_means, f)
+            with open(os.path.join(name, f"opponent_history_{i_episode}.json"), "w") as f:
+                json.dump(opponent_history, f)
             print(f"SAVING! {i_episode}")
 
 
