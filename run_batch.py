@@ -23,7 +23,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     expt_name = args.name
-    results_dir = args.results_dir
+    results_dir = os.path.join(args.results_dir, expt_name)
     game_name = args.game.lower()
     if game_name == "mfos_self_coin_game":
         train_func = main_mfos_self_coin_game
