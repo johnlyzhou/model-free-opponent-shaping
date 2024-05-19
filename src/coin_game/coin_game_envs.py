@@ -9,7 +9,7 @@ from src.coin_game.coin_game_ppo_agent import PPO, Memory
 class CoinGameStats:
     def __init__(self, device: torch.device, num_players: int = 2, save_dir: str = 'my_logs', save_interval: int = 50):
         self.episode_count = 0
-        self.meta_episode_count = 0
+        self.meta_episode_count = 1
         self.num_players = num_players
         self.device = device
         self.save_dir = save_dir
@@ -68,9 +68,9 @@ class CoinGameStats:
         self._reset()
         self.episode_count = 0
         print(f"META-EPISODE {self.meta_episode_count} complete!")
-        self.meta_episode_count += 1
         if self.meta_episode_count % self.save_interval == 0:
             self.save()
+        self.meta_episode_count += 1
 
     def _reset(self):
         self.running_rewards_per_batch = torch.zeros(self.num_players, device=self.device)

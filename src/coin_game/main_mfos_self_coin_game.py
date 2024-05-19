@@ -30,7 +30,7 @@ def main_mfos_self_coin_game(save_dir, device):
     eps_clip = 0.2  # clip parameter for PPO
     use_gae = False
 
-    inner_ep_len = 16
+    inner_ep_len = 32
     num_steps = 256  # , 500
 
     lamb = 1.0
@@ -52,9 +52,9 @@ def main_mfos_self_coin_game(save_dir, device):
     # running_reward = 0
     rew_means = []
 
-    env = SymmetricCoinGame(batch_size, inner_ep_len, device)
+    env = SymmetricCoinGame(batch_size, inner_ep_len, device, save_dir=name)
     # env
-    nl_env = CoinGamePPO(batch_size, inner_ep_len, device)
+    nl_env = CoinGamePPO(batch_size, inner_ep_len, device, save_dir=name)
 
     # training loop
     for i_episode in range(1, max_episodes + 1):
@@ -188,10 +188,11 @@ def main_mfos_self_coin_game(save_dir, device):
             )
         print(rew_means[-1])
 
+        old_log_path = f"{save_dir}/old"
         if i_episode % save_freq == 0:
-            ppo_0.save(os.path.join(save_dir, f"{i_episode}_0.pth"))
-            ppo_1.save(os.path.join(save_dir, f"{i_episode}_1.pth"))
-            with open(os.path.join(save_dir, f"out_{i_episode}.json"), "w") as f:
+            ppo_0.save(os.path.join(old_log_path, f"{i_episode}_0.pth"))
+            ppo_1.save(os.path.join(old_log_path, f"{i_episode}_1.pth"))
+            with open(os.path.join(old_log_path, f"out_{i_episode}.json"), "w") as f:
                 json.dump(rew_means, f)
             print(f"SAVING! {i_episode}")
 
