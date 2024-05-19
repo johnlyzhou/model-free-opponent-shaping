@@ -3,7 +3,7 @@ import os
 
 import torch
 import numpy as np
-from coin_game_ppo_agent import PPO, Memory
+from src.coin_game.coin_game_ppo_agent import PPO, Memory
 
 
 class CoinGameStats:

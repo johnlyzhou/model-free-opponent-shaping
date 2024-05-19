@@ -1,8 +1,8 @@
 import torch
 import os
 import json
-from coin_game_envs import CoinGamePPO
-from coin_game_mfos_agent import MemoryMFOS, PPOMFOS
+from src.coin_game.coin_game_envs import CoinGamePPO
+from src.coin_game.coin_game_mfos_agent import MemoryMFOS, PPOMFOS
 import argparse
 
 
