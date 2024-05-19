@@ -8,7 +8,7 @@ from src.coin_game.coin_game_mfos_agent import MemoryMFOS, PPOMFOS
 import argparse
 
 
-def main_mfos_coin_game(name, device):
+def main_mfos_coin_game(save_dir, device):
     batch_size = 512  # 8192 #, 32768
     state_dim = [7, 3, 3]
     action_dim = 4
@@ -48,7 +48,7 @@ def main_mfos_coin_game(name, device):
     rew_means = []
 
     # env
-    env = CoinGamePPO(batch_size, inner_ep_len, device, save_dir=f"{name}")
+    env = CoinGamePPO(batch_size, inner_ep_len, device, save_dir=save_dir)
 
     # training loop
     for i_episode in range(1, max_episodes + 1):
@@ -99,7 +99,7 @@ def main_mfos_coin_game(name, device):
         )
         print(rew_means[-1])
 
-        old_log_path = os.path.join(name, "old")
+        old_log_path = os.path.join(save_dir, "old")
         if not os.path.isdir(old_log_path):
             pathlib.Path(old_log_path).mkdir(parents=True, exist_ok=True)
 
@@ -108,6 +108,8 @@ def main_mfos_coin_game(name, device):
             with open(os.path.join(old_log_path, f"out_{i_episode}.json"), "w") as f:
                 json.dump(rew_means, f)
             print(f"SAVING! {i_episode}")
+
+    env.logs.save()
 
 
 if __name__ == "__main__":

@@ -55,9 +55,9 @@ def main_mfos_self_coin_game(save_dir, device):
     # running_reward = 0
     rew_means = []
 
-    env = SymmetricCoinGame(batch_size, inner_ep_len, device, save_dir=name)
+    env = SymmetricCoinGame(batch_size, inner_ep_len, device, save_dir=save_dir)
     # env
-    nl_env = CoinGamePPO(batch_size, inner_ep_len, device, save_dir=name)
+    nl_env = CoinGamePPO(batch_size, inner_ep_len, device, save_dir=save_dir)
 
     opponent_history = []
 
@@ -195,7 +195,7 @@ def main_mfos_self_coin_game(save_dir, device):
             )
         print(rew_means[-1])
 
-        old_log_path = os.path.join(name, "old")
+        old_log_path = os.path.join(save_dir, "old")
         if not os.path.isdir(old_log_path):
             pathlib.Path(old_log_path).mkdir(parents=True, exist_ok=True)
 
@@ -204,9 +204,12 @@ def main_mfos_self_coin_game(save_dir, device):
             ppo_1.save(os.path.join(old_log_path, f"{i_episode}_1.pth"))
             with open(os.path.join(old_log_path, f"out_{i_episode}.json"), "w") as f:
                 json.dump(rew_means, f)
-            with open(os.path.join(name, f"opponent_history_{i_episode}.json"), "w") as f:
+            with open(os.path.join(save_dir, f"opponent_history_{i_episode}.json"), "w") as f:
                 json.dump(opponent_history, f)
             print(f"SAVING! {i_episode}")
+
+    env.logs.save()
+    nl_env.logs.save()
 
 
 if __name__ == "__main__":
@@ -215,12 +218,12 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cpu")
     args = parser.parse_args()
     device = torch.device(args.device)
-    name = args.exp_name
+    save_dir = args.exp_name
 
-    print(f"RUNNING NAME: {name}")
-    if not os.path.isdir(name):
-        os.mkdir(name)
-        with open(os.path.join(name, "commandline_args.txt"), "w") as f:
+    print(f"RUNNING NAME: {save_dir}")
+    if not os.path.isdir(save_dir):
+        os.mkdir(save_dir)
+        with open(os.path.join(save_dir, "commandline_args.txt"), "w") as f:
             json.dump(args.__dict__, f, indent=2)
 
-    main_mfos_self_coin_game(name, device)
+    main_mfos_self_coin_game(save_dir, device)
