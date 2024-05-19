@@ -68,7 +68,7 @@ class CoinGameStats:
         self._reset()
         self.episode_count = 0
         print(f"META-EPISODE {self.meta_episode_count} complete!")
-        if self.meta_episode_count % self.save_interval == 0:
+        if save and self.meta_episode_count % self.save_interval == 0:
             self.save()
         self.meta_episode_count += 1
 
