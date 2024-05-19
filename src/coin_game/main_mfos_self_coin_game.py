@@ -217,7 +217,7 @@ def main_mfos_self_coin_game(save_dir, device):
         if not os.path.isdir(mfos_1_save_path):
             pathlib.Path(mfos_1_save_path).mkdir(parents=True, exist_ok=True)
 
-        if i_episode % save_freq == 0:
+        if i_episode % save_freq == 0 or i_episode == max_episodes:
             ppo_0.save(os.path.join(old_log_path, f"{i_episode}_0.pth"))
             ppo_1.save(os.path.join(old_log_path, f"{i_episode}_1.pth"))
 

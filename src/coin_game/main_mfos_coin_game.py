@@ -46,6 +46,7 @@ def main_mfos_coin_game(save_dir, device):
     avg_length = 0
     timestep = 0
     rew_means = []
+    outer_logs = []
 
     # env
     env = CoinGamePPO(batch_size, inner_ep_len, device, save_dir=save_dir)
@@ -81,6 +82,9 @@ def main_mfos_coin_game(save_dir, device):
                 p1_num_self += info_2[3]
                 p2_num_self += info_2[0]
 
+        env.logs.log_meta_episode(save=False)
+        outer_logs.append(env.logs.outer_logs[-1])
+
         ppo.policy_old.reset(memory)
         ppo.update(memory)
 
@@ -103,13 +107,13 @@ def main_mfos_coin_game(save_dir, device):
         if not os.path.isdir(old_log_path):
             pathlib.Path(old_log_path).mkdir(parents=True, exist_ok=True)
 
-        if i_episode % save_freq == 0:
+        if i_episode % save_freq == 0 or i_episode == max_episodes:
             ppo.save(os.path.join(old_log_path, f"{i_episode}.pth"))
+            with open(os.path.join(save_dir, f"out_{i_episode}.json"), "w") as f:
+                json.dump(outer_logs, f)
             with open(os.path.join(old_log_path, f"out_{i_episode}.json"), "w") as f:
                 json.dump(rew_means, f)
             print(f"SAVING! {i_episode}")
-
-    env.logs.save()
 
 
 if __name__ == "__main__":
