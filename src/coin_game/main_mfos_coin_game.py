@@ -46,7 +46,7 @@ def main_mfos_coin_game(name, device):
     rew_means = []
 
     # env
-    env = CoinGamePPO(batch_size, inner_ep_len, device, save_dir=f"{name}/my_logs")
+    env = CoinGamePPO(batch_size, inner_ep_len, device, save_dir=f"{name}")
 
     # training loop
     for i_episode in range(1, max_episodes + 1):
@@ -97,9 +97,10 @@ def main_mfos_coin_game(name, device):
         )
         print(rew_means[-1])
 
+        old_log_path = f"{name}/old"
         if i_episode % save_freq == 0:
-            ppo.save(os.path.join(name, f"{i_episode}.pth"))
-            with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
+            ppo.save(os.path.join(old_log_path, f"{i_episode}.pth"))
+            with open(os.path.join(old_log_path, f"out_{i_episode}.json"), "w") as f:
                 json.dump(rew_means, f)
             print(f"SAVING! {i_episode}")
 
