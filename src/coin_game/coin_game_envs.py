@@ -274,7 +274,7 @@ class CoinGamePPO:
         eps_clip = 0.2  # clip parameter for PPO
 
         self.inner_agent = PPO(input_shape, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip,
-                               tau)  # MAYBE DONT LET INNER AGENT BE RNN
+                               self.device)  # MAYBE DONT LET INNER AGENT BE RNN
         self.inner_memory = Memory()
 
         self.env_states = self.env.reset()
