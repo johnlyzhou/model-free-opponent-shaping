@@ -19,7 +19,7 @@ def main_mfos_self_coin_game(save_dir, device):
     # traj_length = 32
 
     max_episodes = 1000  # max training episodes
-    log_interval = 50
+    log_interval = 10
 
     lr = 0.0002
     betas = (0.9, 0.999)
@@ -28,7 +28,7 @@ def main_mfos_self_coin_game(save_dir, device):
 
     traj_length = 16
 
-    save_freq = 50
+    save_freq = 10
     K_epochs = 16  # update policy for K epochs
     eps_clip = 0.2  # clip parameter for PPO
     use_gae = False
@@ -208,8 +208,14 @@ def main_mfos_self_coin_game(save_dir, device):
         print(rew_means[-1])
 
         old_log_path = os.path.join(save_dir, "old")
+        mfos_0_save_path = os.path.join(save_dir, "mfos_0")
+        mfos_1_save_path = os.path.join(save_dir, "mfos_1")
         if not os.path.isdir(old_log_path):
             pathlib.Path(old_log_path).mkdir(parents=True, exist_ok=True)
+        if not os.path.isdir(mfos_0_save_path):
+            pathlib.Path(mfos_0_save_path).mkdir(parents=True, exist_ok=True)
+        if not os.path.isdir(mfos_1_save_path):
+            pathlib.Path(mfos_1_save_path).mkdir(parents=True, exist_ok=True)
 
         if i_episode % save_freq == 0:
             ppo_0.save(os.path.join(old_log_path, f"{i_episode}_0.pth"))
