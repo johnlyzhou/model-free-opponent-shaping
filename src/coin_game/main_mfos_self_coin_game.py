@@ -34,7 +34,7 @@ def main_mfos_self_coin_game(save_dir, device):
     use_gae = False
 
     inner_ep_len = 32
-    num_steps = 256  # , 500
+    num_steps = traj_length * inner_ep_len  # , 500
 
     lamb = 1.0
     lamb_anneal = 0.005

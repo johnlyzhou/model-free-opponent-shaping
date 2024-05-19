@@ -28,7 +28,7 @@ def main_mfos_coin_game(name, device):
     use_gae = False
 
     inner_ep_len = 32
-    num_steps = 256
+    num_steps = inner_ep_len * traj_length
 
     do_sum = False
 
