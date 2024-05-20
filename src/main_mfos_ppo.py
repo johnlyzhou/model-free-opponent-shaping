@@ -1,21 +1,11 @@
 import torch
-from ppo import PPO, Memory
-from environments import MetaGames
+from src.ppo import PPO, Memory
+from src.environments import MetaGames
 import os
 import argparse
 import json
 from tqdm import tqdm
 torch.set_printoptions(precision=4, sci_mode=False)
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--game", type=str, required=True)
-parser.add_argument("--opponent", type=str, required=True)
-parser.add_argument("--entropy", type=float, default=0.01)
-parser.add_argument("--exp-name", type=str, default="test")
-parser.add_argument("--checkpoint", type=str, default="")
-parser.add_argument("--mamaml-id", type=int, default=0)
-parser.add_argument("--device", type=str, default="cpu")
-args = parser.parse_args()
 
 
 def main(game, opponent, entropy, exp_name, checkpoint, mamaml_id, device):
@@ -130,6 +120,16 @@ def main(game, opponent, entropy, exp_name, checkpoint, mamaml_id, device):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--game", type=str, required=True)
+    parser.add_argument("--opponent", type=str, required=True)
+    parser.add_argument("--entropy", type=float, default=0.01)
+    parser.add_argument("--exp-name", type=str, default="test")
+    parser.add_argument("--checkpoint", type=str, default="")
+    parser.add_argument("--mamaml-id", type=int, default=0)
+    parser.add_argument("--device", type=str, default="cpu")
+    args = parser.parse_args()
+
     device = torch.device(args.device)
     ############################################
     name = args.exp_name
