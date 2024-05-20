@@ -16,6 +16,6 @@ if __name__ == '__main__':
 
     for mamaml_id in range(10):
         device = torch.device(args.device)
-        exp_name = f"{args.exp_name}_{mamaml_id}"
+        exp_name = f"{args.exp_name}/id_{mamaml_id}"
         print(f"RUNNING NAME: {exp_name}")
         main(args.game, "MAMAML", args.entropy, exp_name, args.checkpoint, mamaml_id, device)
