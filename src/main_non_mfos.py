@@ -24,9 +24,12 @@ if __name__ == "__main__":
             json.dump(args.__dict__, f, indent=2)
 
     results = []
+    agent_list = ["Reciprocator", "NL", "LOLA", "MAMAML"]
     for game in ["IPD"]:
-        for p1 in ["Reciprocator", "NL", "LOLA", "MAMAML"]:  #"Reciprocator", "NL", "LOLA"]:
-            for p2 in ["Reciprocator", "NL", "LOLA", "MAMAML"]:
+        for i, p1 in enumerate(agent_list):  #"Reciprocator", "NL", "LOLA"]:
+            for j, p2 in enumerate(agent_list):
+                if i > j:
+                    continue
                 if p1 == "MAMAML" or p2 == "MAMAML":
                     for id in range(10):
                         print(f"Running {game} with {p1} vs. {p2}: ID {id}")
