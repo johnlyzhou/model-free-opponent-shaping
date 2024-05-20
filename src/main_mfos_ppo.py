@@ -18,9 +18,7 @@ parser.add_argument("--device", type=str, default="cpu")
 args = parser.parse_args()
 
 
-if __name__ == "__main__":
-    device = torch.device(args.device)
-    ############################################
+def main(game, opponent, entropy, exp_name, checkpoint, mamaml_id, device):
     K_epochs = 4  # update policy for K epochs
 
     eps_clip = 0.2  # clip parameter for PPO
@@ -30,7 +28,7 @@ if __name__ == "__main__":
     betas = (0.9, 0.999)
 
     max_episodes = 1024
-    if args.checkpoint:
+    if checkpoint:
         max_episodes = 1
         batch_size = 2
     else:
@@ -39,18 +37,12 @@ if __name__ == "__main__":
     num_steps = 100
 
     save_freq = 100
-    name = args.exp_name
-
-    print(f"RUNNING NAME: {name}")
-    if not os.path.isdir(name):
-        os.mkdir(name)
-        with open(os.path.join(name, "commandline_args.txt"), "w") as f:
-            json.dump(args.__dict__, f, indent=2)
+    name = exp_name
 
     #############################################
 
     # creating environment
-    env = MetaGames(batch_size, device, opponent=args.opponent, game=args.game, mmapg_id=args.mamaml_id)
+    env = MetaGames(batch_size, device, opponent=opponent, game=game, mmapg_id=mamaml_id)
 
     action_dim = env.d  # 5 for IPD
     state_dim = env.d * 2  # concatenation of both policies so 10
@@ -59,10 +51,10 @@ if __name__ == "__main__":
     # This is actually the outer MFOS agent that is outputting a 5-d policy to play against the inner PPO agent
     #  at each step, i.e., a full inner episode
     memory = Memory()
-    ppo = PPO(state_dim, action_dim, lr, betas, gamma, K_epochs, eps_clip, args.entropy, device)
+    ppo = PPO(state_dim, action_dim, lr, betas, gamma, K_epochs, eps_clip, entropy, device)
 
-    if args.checkpoint:
-        ppo.load(args.checkpoint)
+    if checkpoint:
+        ppo.load(checkpoint)
 
     print(lr, betas)
 
@@ -89,7 +81,7 @@ if __name__ == "__main__":
             action = ppo.policy_old.act(state, memory)
             # Env step gives the full rewards of an entire inner episode between the two agents
             state, reward, info, M = env.step(action)
-            if args.checkpoint or t == 0 or t == num_steps - 1:
+            if checkpoint or t == 0 or t == num_steps - 1:
                 print(f"EP {i_episode}, Step {t}")
                 print(f"Mean MFOS policy: {state[:, :5].mean(dim=0)}\n"
                       f"Std MFOS policy: {state[:, :5].std(dim=0)}\n")
@@ -103,7 +95,7 @@ if __name__ == "__main__":
             last_opp_reward = info.squeeze(-1).mean().item()
             # print(last_reward.shape, last_opp_reward.shape)
 
-        if not args.checkpoint:
+        if not checkpoint:
             ppo.update(memory)
         memory.clear_memory()
 
@@ -121,16 +113,33 @@ if __name__ == "__main__":
         )
 
         logs.append({f"player_{0}": {"last_reward": last_reward, "avg_rew": running_reward.mean().item() / num_steps},
-                     f"player_{1}": {"last_reward": last_opp_reward, "avg_rew": running_opp_reward.mean().item() / num_steps}})
+                     f"player_{1}": {"last_reward": last_opp_reward,
+                                     "avg_rew": running_opp_reward.mean().item() / num_steps}})
         print(logs[-1])
 
-        if not args.checkpoint and i_episode % save_freq == 0:
+        if not checkpoint and i_episode % save_freq == 0:
             ppo.save(os.path.join(name, f"{i_episode}.pth"))
             with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
                 json.dump(logs, f)
 
-    if not args.checkpoint:
+    if not checkpoint:
         ppo.save(os.path.join(name, f"{i_episode}.pth"))
         with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
             json.dump(rew_means, f)
         print(f"SAVING! {i_episode}")
+
+
+if __name__ == "__main__":
+    device = torch.device(args.device)
+    ############################################
+    name = args.exp_name
+
+    print(f"RUNNING NAME: {name}")
+    if not os.path.isdir(name):
+        os.mkdir(name)
+        with open(os.path.join(name, "commandline_args.txt"), "w") as f:
+            json.dump(args.__dict__, f, indent=2)
+
+    #############################################
+
+    main(args.game, args.opponent, args.entropy, name, args.checkpoint, args.mamaml_id, device)
