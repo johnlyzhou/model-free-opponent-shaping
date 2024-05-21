@@ -445,19 +445,11 @@ class NonMfosMetaGames:
             with torch.no_grad():
                 self.p1_th_ba -= grad * self.lr
         elif self.p1 == 'Reciprocator':
-<<<<<<< HEAD
-            L_rr = self.analytic_rr_p1.Ls(th_ba)
-            grad = get_gradient(L_rr.sum(), self.p1_th_ba)
-            with torch.no_grad():
-                self.p1_th_ba -= grad * self.lr
-            self.analytic_rr_p1.update_baseline(th_ba, tau=RECIPROCATOR_TAU)
-=======
             L_rr = self.analytic_rr_p1.Ls([self.p1_th_ba, self.p2_th_ba])
             grad = get_gradient(L_rr.sum(), self.p1_th_ba)
             with torch.no_grad():
                 self.p1_th_ba -= grad * self.lr
             self.analytic_rr_p1.update_baseline([self.p1_th_ba, self.p2_th_ba], tau=RECIPROCATOR_TAU)
->>>>>>> 2e285235952d901da975df52262d0f9a59a13925
         elif self.p1 == "TFT":
             pass
         elif self.p1 == "STATIC":
@@ -478,19 +470,11 @@ class NonMfosMetaGames:
             with torch.no_grad():
                 self.p2_th_ba -= grad * self.lr
         elif self.p2 == "Reciprocator":
-<<<<<<< HEAD
-            L_rr = self.analytic_rr_p2.Ls(th_ba[::-1])
-            grad = get_gradient(L_rr.sum(), self.p2_th_ba)
-            with torch.no_grad():
-                self.p2_th_ba -= grad * self.lr
-            self.analytic_rr_p2.update_baseline(th_ba[::-1], tau=0.02)
-=======
             L_rr = self.analytic_rr_p2.Ls([self.p2_th_ba, self.p1_th_ba])
             grad = get_gradient(L_rr.sum(), self.p2_th_ba)
             with torch.no_grad():
                 self.p2_th_ba -= grad * self.lr
             self.analytic_rr_p2.update_baseline([self.p2_th_ba, self.p1_th_ba], tau=RECIPROCATOR_TAU)
->>>>>>> 2e285235952d901da975df52262d0f9a59a13925
         elif self.p2 == "TFT":
             pass
         elif self.p2 == "STATIC":

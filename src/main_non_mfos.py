@@ -24,13 +24,8 @@ if __name__ == "__main__":
             json.dump(args.__dict__, f, indent=2)
 
     results = []
-<<<<<<< HEAD
-    for game in ["IPD", "chicken"]:
-        for p1 in ["Reciprocator", "NL", "LOLA", "MAMAML"]: 
-=======
     for game in ["IPD"]:
         for p1 in ["Reciprocator", "NL", "LOLA", "MAMAML"]:  #"Reciprocator", "NL", "LOLA"]:
->>>>>>> 2e285235952d901da975df52262d0f9a59a13925
             for p2 in ["Reciprocator", "NL", "LOLA", "MAMAML"]:
                 if p1 == "MAMAML" or p2 == "MAMAML":
                     for id in range(10):
@@ -76,7 +71,6 @@ if __name__ == "__main__":
                         print(f"r0: {r0.mean().detach().item()}, r1: {r1.mean().detach().item()}")
                         running_rew_0 += r0.squeeze(-1)
                         running_rew_1 += r1.squeeze(-1)
-                        print(f"r0: {r0.mean().detach().item()}, r1: {r1.mean().detach().item()}")
                     mean_rew_0 = (running_rew_0.mean() / num_steps).item()
                     mean_rew_1 = (running_rew_1.mean() / num_steps).item()
 
