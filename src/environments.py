@@ -9,7 +9,7 @@ RECIPROCATOR_ARGS = {
     "target_period": 10
 }
 
-RECIPROCATOR_TAU = 0.02
+RECIPROCATOR_TAU = 1.0
 
 
 def ipd_batched(bs, device, gamma_inner=0.96):
