@@ -1,3 +1,5 @@
+## Notes for Reciprocal Reward Influence: instructions remain the same as the original code for MFOS, but the "Reciprocator" opponent can be specified in the `--opponent` flag.
+
 ## Model-Free-Opponent Shaping
 
 #### In ICML 2022 (Spotlight) [[arXiv]](https://arxiv.org/abs/2205.01447)
