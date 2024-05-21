@@ -211,7 +211,7 @@ class MetaGames:
         if self.opponent == "MAMAML":
             f = f"data/mamaml_{self.game}_{mmapg_id}.th"
             assert osp.exists(f), "Generate the MAMAML weights first"
-            self.init_th_ba = torch.load(f)
+            self.init_th_ba = torch.load(f).to(device)
         elif self.opponent == "Reciprocator":
             self.analytic_rr = AnalyticReciprocator(**RECIPROCATOR_ARGS,
                                                     game=self.game,
@@ -380,7 +380,7 @@ class NonMfosMetaGames:
             assert osp.exists(f), "Generate the MAMAML weights first"
             # print(f"GENERATING MAPG WEIGHTS TO {f}")
             # generate_meta_mapg(self.b, self.d, self.game_batched, self.game, inner_lr=self.lr)
-            self.init_th_ba = torch.load(f)
+            self.init_th_ba = torch.load(f).to(device)
             print(self.init_th_ba)
 
         if self.p1 == "Reciprcator" and self.p2 == "Reciprocator":
