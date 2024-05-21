@@ -11,6 +11,7 @@ parser.add_argument("--game", type=str, required=True)
 parser.add_argument("--opponent", type=str, required=True)
 parser.add_argument("--exp-name", type=str, default="")
 parser.add_argument("--mamaml-id", type=int, default=0)
+parser.add_argument("--device", type=str, default="cpu")
 args = parser.parse_args()
 
 
@@ -34,11 +35,11 @@ if __name__ == "__main__":
 
     #############################################
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device(args.device)
 
     # creating environment
-    env = MetaGames(num_species * batch_size, opponent=args.opponent, game=args.game, mmapg_id=args.mamaml_id)
-    env_test = MetaGames(test_size, opponent=args.opponent, game=args.game, mmapg_id=args.id)
+    env = MetaGames(num_species * batch_size, device, opponent=args.opponent, game=args.game, mmapg_id=args.mamaml_id)
+    env_test = MetaGames(test_size, device, opponent=args.opponent, game=args.game, mmapg_id=args.id)
 
     action_dim = env.d
     state_dim = env.d * 2

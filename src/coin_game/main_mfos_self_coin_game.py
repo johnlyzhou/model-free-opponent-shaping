@@ -1,18 +1,16 @@
+import pathlib
+
 import torch
 import os
 import json
 import numpy as np
-from coin_game_envs import CoinGamePPO, SymmetricCoinGame
-from coin_game.coin_game_mfos_agent import MemoryMFOS, PPOMFOS
 import argparse
 
+from src.coin_game.coin_game_envs import CoinGamePPO, SymmetricCoinGame
+from src.coin_game.coin_game_mfos_agent import MemoryMFOS, PPOMFOS
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--exp-name", type=str, default="")
-args = parser.parse_args()
 
-if __name__ == "__main__":
-    ############## Hyperparameters ##############
+def main_mfos_self_coin_game(save_dir, device):
     batch_size = 512  # 8192 #, 32768
     state_dim = [7, 3, 3]
     action_dim = 4
@@ -21,7 +19,7 @@ if __name__ == "__main__":
     # traj_length = 32
 
     max_episodes = 1000  # max training episodes
-    log_interval = 50
+    log_interval = 10
 
     lr = 0.0002
     betas = (0.9, 0.999)
@@ -30,31 +28,26 @@ if __name__ == "__main__":
 
     traj_length = 16
 
-    save_freq = 50
+    save_freq = 10
     K_epochs = 16  # update policy for K epochs
     eps_clip = 0.2  # clip parameter for PPO
     use_gae = False
 
-    inner_ep_len = 16
-    num_steps = 256  # , 500
+    inner_ep_len = 32
+    num_steps = traj_length * inner_ep_len  # , 500
 
     lamb = 1.0
     lamb_anneal = 0.005
-    name = args.exp_name
-
-    print(f"RUNNING NAME: {name}")
-    if not os.path.isdir(name):
-        os.mkdir(name)
-        with open(os.path.join(name, "commandline_args.txt"), "w") as f:
-            json.dump(args.__dict__, f, indent=2)
 
     #############################################
 
     memory_0 = MemoryMFOS()
-    ppo_0 = PPOMFOS(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, batch_size, inner_ep_len)
+    ppo_0 = PPOMFOS(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, batch_size, inner_ep_len,
+                    device)
 
     memory_1 = MemoryMFOS()
-    ppo_1 = PPOMFOS(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, batch_size, inner_ep_len)
+    ppo_1 = PPOMFOS(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, batch_size, inner_ep_len,
+                    device)
 
     print(lr, betas)
     print(sum(p.numel() for p in ppo_0.policy_old.parameters() if p.requires_grad))
@@ -62,9 +55,13 @@ if __name__ == "__main__":
     # running_reward = 0
     rew_means = []
 
-    env = SymmetricCoinGame(batch_size, inner_ep_len)
+    env = SymmetricCoinGame(batch_size, inner_ep_len, device, save_dir=save_dir)
     # env
-    nl_env = CoinGamePPO(batch_size, inner_ep_len)
+    nl_env = CoinGamePPO(batch_size, inner_ep_len, device, save_dir=save_dir)
+
+    opponent_history = []
+    outer_logs_0 = []
+    outer_logs_1 = []
 
     # training loop
     for i_episode in range(1, max_episodes + 1):
@@ -79,8 +76,8 @@ if __name__ == "__main__":
             print("v opponent")
             state_0, state_1 = env.reset()
 
-            running_reward_0 = torch.zeros(batch_size).cuda()
-            running_reward_1 = torch.zeros(batch_size).cuda()
+            running_reward_0 = torch.zeros(batch_size).to(device)
+            running_reward_1 = torch.zeros(batch_size).to(device)
             p1_num_opp, p2_num_opp, p1_num_self, p2_num_self = 0, 0, 0, 0
             for t in range(num_steps):
                 # Running policy_old:
@@ -107,6 +104,11 @@ if __name__ == "__main__":
                     p1_num_self += info_2[3]
                     p2_num_self += info_2[0]
 
+            opponent_history.append(1)
+            env.logs.log_meta_episode(save=False)
+            outer_logs_0.append(env.logs.outer_logs[-1])
+            outer_logs_1.append(env.logs.outer_logs[-1])
+
             ppo_0.policy_old.reset(memory_0)
             ppo_1.policy_old.reset(memory_1)
 
@@ -115,7 +117,6 @@ if __name__ == "__main__":
 
             memory_0.clear_memory()
             memory_1.clear_memory()
-
             # print(f"reward 0: {running_reward_0.mean()}")
             # print(f"reward 1: {running_reward_1.mean()}")
             rew_means.append(
@@ -131,9 +132,10 @@ if __name__ == "__main__":
                 }
             )
         else:
+            # Both agent 1 and 2 play against the NL
             state = nl_env.reset()
-            running_reward_0 = torch.zeros(batch_size).cuda()
-            opp_running_reward_0 = torch.zeros(batch_size).cuda()
+            running_reward_0 = torch.zeros(batch_size).to(device)
+            opp_running_reward_0 = torch.zeros(batch_size).to(device)
             p1_num_opp_0, p2_num_opp_0, p1_num_self_0, p2_num_self_0 = 0, 0, 0, 0
             for t in range(num_steps):
                 # Running policy_old:
@@ -151,13 +153,17 @@ if __name__ == "__main__":
                     p1_num_self_0 += info_2[3]
                     p2_num_self_0 += info_2[0]
 
+            opponent_history.append(0)
+            nl_env.logs.log_meta_episode(save=False)
+            outer_logs_0.append(nl_env.logs.outer_logs[-1])
+
             ppo_0.policy_old.reset(memory_0)
             ppo_0.update(memory_0)
             memory_0.clear_memory()
 
             state = nl_env.reset()
-            running_reward_1 = torch.zeros(batch_size).cuda()
-            opp_running_reward_1 = torch.zeros(batch_size).cuda()
+            running_reward_1 = torch.zeros(batch_size).to(device)
+            opp_running_reward_1 = torch.zeros(batch_size).to(device)
             p1_num_opp_1, p2_num_opp_1, p1_num_self_1, p2_num_self_1 = 0, 0, 0, 0
             for t in range(num_steps):
                 # Running policy_old:
@@ -174,6 +180,9 @@ if __name__ == "__main__":
                     p2_num_opp_1 += info_2[1]
                     p1_num_self_1 += info_2[3]
                     p2_num_self_1 += info_2[0]
+
+            nl_env.logs.log_meta_episode(save=False)
+            outer_logs_1.append(nl_env.logs.outer_logs[-1])
 
             ppo_1.policy_old.reset(memory_1)
             ppo_1.update(memory_1)
@@ -198,9 +207,45 @@ if __name__ == "__main__":
             )
         print(rew_means[-1])
 
-        if i_episode % save_freq == 0:
-            ppo_0.save(os.path.join(name, f"{i_episode}_0.pth"))
-            ppo_1.save(os.path.join(name, f"{i_episode}_1.pth"))
-            with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
+        old_log_path = os.path.join(save_dir, "old")
+        mfos_0_save_path = os.path.join(save_dir, "mfos_0")
+        mfos_1_save_path = os.path.join(save_dir, "mfos_1")
+        if not os.path.isdir(old_log_path):
+            pathlib.Path(old_log_path).mkdir(parents=True, exist_ok=True)
+        if not os.path.isdir(mfos_0_save_path):
+            pathlib.Path(mfos_0_save_path).mkdir(parents=True, exist_ok=True)
+        if not os.path.isdir(mfos_1_save_path):
+            pathlib.Path(mfos_1_save_path).mkdir(parents=True, exist_ok=True)
+
+        if i_episode % save_freq == 0 or i_episode == max_episodes:
+            ppo_0.save(os.path.join(old_log_path, f"{i_episode}_0.pth"))
+            ppo_1.save(os.path.join(old_log_path, f"{i_episode}_1.pth"))
+
+            with open(os.path.join(save_dir, "mfos_0", f"out_{i_episode}.json"), "w") as f:
+                json.dump(outer_logs_0, f)
+            with open(os.path.join(save_dir, "mfos_1", f"out_{i_episode}.json"), "w") as f:
+                json.dump(outer_logs_1, f)
+            with open(os.path.join(save_dir, f"opponent_history_{i_episode}.json"), "w") as f:
+                json.dump(opponent_history, f)
+
+            with open(os.path.join(old_log_path, f"out_{i_episode}.json"), "w") as f:
                 json.dump(rew_means, f)
             print(f"SAVING! {i_episode}")
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--exp-name", type=str, default="")
+    parser.add_argument("--device", type=str, default="cpu")
+    args = parser.parse_args()
+    device = torch.device(args.device)
+    save_dir = args.exp_name
+
+    print(f"RUNNING NAME: {save_dir}")
+    if not os.path.isdir(save_dir):
+        os.mkdir(save_dir)
+        with open(os.path.join(save_dir, "commandline_args.txt"), "w") as f:
+            json.dump(args.__dict__, f, indent=2)
+
+    main_mfos_self_coin_game(save_dir, device)

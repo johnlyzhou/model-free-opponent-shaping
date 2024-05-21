@@ -3,6 +3,7 @@ from collections import deque
 import torch
 
 torch.autograd.set_detect_anomaly(True)
+torch.set_printoptions(precision=4, sci_mode=False)
 
 
 def idx_to_state(idx: int or torch.Tensor):
@@ -156,14 +157,15 @@ class AnalyticReciprocator:
         s_idxs = idx_to_state(s)
         return choices[s_idxs[0]] + choices[s_idxs[1]]
 
-    def init_rr_components(self, s_pre: int, s: int, a: int):
+    def init_rr_components(self, s_pre: int, s: int, a: int, verbose: bool = False):
         """
         Compute the components (grudge and VoI on other) needed to compute reciprocal rewards.
         :param s_pre: The state at t-1 as an int (0-3)
         :param s: The state at t as an int
         :param a: The action at t as an int
         """
-        # print("STATE:", self.state_to_choices(s_pre), self.state_to_choices(s), self.state_to_choices(a))
+        if verbose:
+            print("STATE:", self.state_to_choices(s_pre), self.state_to_choices(s), self.state_to_choices(a))
         # Compute grudge
         s_state = idx_to_state(s)
         last_rew = self.extrinsic_rewards[s_state[0], s_state[1]]  # Actual reward received at t-1 (since s_t is a_t-1)
@@ -172,23 +174,26 @@ class AnalyticReciprocator:
         last_expected_rew = (self.extrinsic_rewards[s_state[0], 0] * baseline_probs +
                              self.extrinsic_rewards[s_state[0], 1] * (1 - baseline_probs))
         self.grudge[:, s_pre, s] = last_expected_rew - last_rew  # essentially just VoI on self for 1-step memory
-        # print(f"OPP BASELINE P(C | {self.state_to_choices(s_pre)}):", baseline_probs[0])
-        # print(f"ACTUAL REWARD R({self.state_to_choices(s)} | {self.state_to_choices(s_pre)}):", last_rew,
-        #       f"EXPECTED REW FOR SELF R({self.state_to_choices(s)[0]}X | {self.state_to_choices(s_pre)}):", last_expected_rew[0])
-        # print("GRUDGE:", self.grudge[0, s_pre, s])
+        if verbose:
+            # print(f"OPP BASELINE P(C | {self.state_to_choices(s_pre)}):", baseline_probs[0])
+            # print(f"ACTUAL REWARD R({self.state_to_choices(s)} | {self.state_to_choices(s_pre)}):", last_rew,
+            #       f"EXPECTED REW FOR SELF R({self.state_to_choices(s)[0]}X | {self.state_to_choices(s_pre)}):", last_expected_rew[0])
+            print("GRUDGE:", self.grudge[0, s_pre, s])
 
         # Compute VoI on other
         a_state = idx_to_state(a)
         curr_opp_rew = self.extrinsic_rewards[
             a_state[1], a_state[0]]  # Extrinsic rew at current time t from actions a_t
         own_baseline_probs = self.own_baseline_policy[:, s]  # (bsz,)
-        # print(f"OWN BASELINE PROBS P(C | {self.state_to_choices(s)}):", own_baseline_probs[0])
         opp_expected_rew = (self.extrinsic_rewards[a_state[1], 0] * own_baseline_probs +
                             self.extrinsic_rewards[a_state[1], 1] * (1 - own_baseline_probs))
         self.voi_on_other[:, s, a] = opp_expected_rew - curr_opp_rew
-        # print(f"ACTUAL REWARD R({self.state_to_choices(a)} | {self.state_to_choices(s)}):", curr_opp_rew,
-        #       f"EXPECTED REWARD FOR OPP R(X{self.state_to_choices(a)[1]} | {self.state_to_choices(s)}):", opp_expected_rew[0])
-        # print("VOI:", self.voi_on_other[0, s, a])
+        if verbose:
+            # print(f"OWN BASELINE PROBS P(C | {self.state_to_choices(s)}):", own_baseline_probs[0])
+            # print(f"ACTUAL REWARD R({self.state_to_choices(a)} | {self.state_to_choices(s)}):", curr_opp_rew,
+            #       f"EXPECTED REWARD FOR OPP R(X{self.state_to_choices(a)[1]} | {self.state_to_choices(s)}):", opp_expected_rew[0])
+            print("VOI:", self.voi_on_other[0, s, a])
+            print("RR:", self.voi_on_other[0, s, a] * self.grudge[0, s_pre, s])
 
     def init_full_rewards(self):
         for s_pre in range(4):

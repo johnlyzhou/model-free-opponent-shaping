@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import MultivariateNormal
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-
 
 class Memory:
     def __init__(self):
@@ -21,8 +19,9 @@ class Memory:
 
 
 class ActorCritic(nn.Module):
-    def __init__(self, state_dim, action_dim):
+    def __init__(self, state_dim, action_dim, device):
         super(ActorCritic, self).__init__()
+        self.device = device
         self.actor = nn.Sequential(
             nn.Linear(state_dim, 256),
             nn.Tanh(),
@@ -75,7 +74,7 @@ class ActorCritic(nn.Module):
         action_var = F.softplus(action_var)
 
         #         action_var = self.action_var.expand_as(action_mean)
-        cov_mat = torch.diag_embed(action_var).to(device)
+        cov_mat = torch.diag_embed(action_var).to(self.device)
 
         dist = MultivariateNormal(action_mean, cov_mat)
 
@@ -88,24 +87,25 @@ class ActorCritic(nn.Module):
 
 
 class PPO:
-    def __init__(self, state_dim, action_dim, lr, betas, gamma, K_epochs, eps_clip, entropy):
+    def __init__(self, state_dim, action_dim, lr, betas, gamma, K_epochs, eps_clip, entropy, device):
         self.lr = lr
         self.betas = betas
         self.gamma = gamma
         self.eps_clip = eps_clip
         self.K_epochs = K_epochs
+        self.device = device
 
-        self.policy = ActorCritic(state_dim, action_dim).to(device)
+        self.policy = ActorCritic(state_dim, action_dim, self.device).to(self.device)
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=lr, betas=betas)
 
-        self.policy_old = ActorCritic(state_dim, action_dim).to(device)
+        self.policy_old = ActorCritic(state_dim, action_dim, self.device).to(self.device)
         self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.MseLoss = nn.MSELoss()
         self.entropy_bonus = entropy
 
     def select_action(self, state, memory):
-        state = torch.FloatTensor(state.reshape(1, -1)).to(device)
+        state = torch.FloatTensor(state.reshape(1, -1)).to(self.device)
         return self.policy_old.act(state, memory).cpu().data.numpy().flatten()
 
     def update(self, memory):

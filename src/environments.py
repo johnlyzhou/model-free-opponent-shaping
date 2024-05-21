@@ -2,19 +2,17 @@ import torch
 from analytic_reciprocator import AnalyticReciprocator
 import os.path as osp
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 RECIPROCATOR_ARGS = {
-    "rr_weight": 5.0,
+    "rr_weight": 10.0,
     "gamma": 0.96,
-    "buffer_size": 5,
-    "target_period": 10
+    "buffer_size": 2,
+    "target_period": 1
 }
 
-RECIPROCATOR_TAU = 0.02
+RECIPROCATOR_TAU = 1.0
 
 
-def ipd_batched(bs, gamma_inner=0.96):
+def ipd_batched(bs, device, gamma_inner=0.96):
     dims = [5, 5]
     payout_mat_1 = torch.Tensor([[-1, -3], [0, -2]]).to(device)
     payout_mat_2 = payout_mat_1.T
@@ -38,7 +36,7 @@ def ipd_batched(bs, gamma_inner=0.96):
     return dims, Ls
 
 
-def chicken_game_batch(bs, gamma_inner=0.96):
+def chicken_game_batch(bs, device, gamma_inner=0.96):
     dims = [5, 5]
     payout_mat_1 = torch.Tensor([[0, -1], [1, -100]]).to(device)
     payout_mat_2 = payout_mat_1.T
@@ -62,7 +60,7 @@ def chicken_game_batch(bs, gamma_inner=0.96):
     return dims, Ls
 
 
-def imp_batched(bs, gamma_inner=0.96):
+def imp_batched(bs, device, gamma_inner=0.96):
     dims = [5, 5]
     payout_mat_1 = torch.Tensor([[-1, 1], [1, -1]]).to(device)
     payout_mat_2 = -payout_mat_1
@@ -91,13 +89,13 @@ def get_gradient(function, param):
     return grad
 
 
-def compute_best_response(outer_th_ba):
+def compute_best_response(outer_th_ba, device):
     batch_size = 1
     std = 0
     num_steps = 1000
     lr = 1
 
-    ipd_batched_env = ipd_batched(batch_size, gamma_inner=0.96)[1]
+    ipd_batched_env = ipd_batched(batch_size, device, gamma_inner=0.96)[1]
     inner_th_ba = torch.nn.init.normal_(torch.empty((batch_size, 5), requires_grad=True), std=std).to(device)
     for i in range(num_steps):
         th_ba = [inner_th_ba, outer_th_ba.detach()]
@@ -109,7 +107,7 @@ def compute_best_response(outer_th_ba):
     return inner_th_ba
 
 
-def matching_pennies_batch(batch_size=128):
+def matching_pennies_batch(device, batch_size=128):
     dims = [1, 1]
     payout_mat_1 = torch.Tensor([[1, -1], [-1, 1]]).to(device)
     payout_mat_2 = -payout_mat_1
@@ -143,7 +141,7 @@ def matching_pennies_batch(batch_size=128):
 #     return dims, Ls
 
 
-def generate_mamaml(b, d, inner_env, game, inner_lr=1):
+def generate_mamaml(b, d, inner_env, game, device, inner_lr=1):
     """
     This is an improved version of the algorithm presented in this paper:
     https://arxiv.org/pdf/2011.00382.pdf
@@ -180,7 +178,7 @@ def generate_mamaml(b, d, inner_env, game, inner_lr=1):
 
 
 class MetaGames:
-    def __init__(self, b, opponent="NL", game="IPD", mmapg_id=0):
+    def __init__(self, b, device, opponent="NL", game="IPD", mmapg_id=0):
         """
         Opponent can be:
         NL = Naive Learner (gradient updates through environment).
@@ -190,18 +188,19 @@ class MetaGames:
         """
         self.gamma_inner = 0.96
         self.b = b
+        self.device = device
 
         self.game = game
         if self.game == "IPD":
-            d, self.game_batched = ipd_batched(b, gamma_inner=self.gamma_inner)
+            d, self.game_batched = ipd_batched(b, device, gamma_inner=self.gamma_inner)
             self.std = 1
             self.lr = 1
         elif self.game == "IMP":
-            d, self.game_batched = imp_batched(b, gamma_inner=self.gamma_inner)
+            d, self.game_batched = imp_batched(b, device, gamma_inner=self.gamma_inner)
             self.std = 1
             self.lr = 1
         elif self.game == "chicken":
-            d, self.game_batched = chicken_game_batch(b)
+            d, self.game_batched = chicken_game_batch(b, device)
             self.std = 1
             self.lr = 1
         else:
@@ -226,13 +225,13 @@ class MetaGames:
         if self.opponent == "Reciprocator":
             self.analytic_rr.reset()
         if self.init_th_ba is not None:
-            self.inner_th_ba = self.init_th_ba.detach() * torch.ones((self.b, self.d), requires_grad=True).to(device)
+            self.inner_th_ba = self.init_th_ba.detach() * torch.ones((self.b, self.d), requires_grad=True).to(self.device)
         else:
-            self.inner_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
-        outer_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
+            self.inner_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(self.device)
+        outer_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(self.device)
         state, _, _, M = self.step(outer_th_ba)
         if self.opponent == "TFT":
-            self.inner_th_ba = torch.zeros((self.b, self.d)).to(device).detach()
+            self.inner_th_ba = torch.zeros((self.b, self.d)).to(self.device).detach()
             self.inner_th_ba[:, [0, 1, 3]] = 1000000
             self.inner_th_ba[:, 2] = -1000000
             self.inner_th_ba[:, 4] = -1000000
@@ -274,7 +273,7 @@ class MetaGames:
             # Best response agent, is allowed to train for num_steps to get to a policy before the playing the game vs.
             #  MFOS's outputted policy
             num_steps = 1000
-            inner_th_ba = torch.nn.init.normal_(torch.empty((self.b, 5), requires_grad=True), std=self.std).to(device)
+            inner_th_ba = torch.nn.init.normal_(torch.empty((self.b, 5), requires_grad=True), std=self.std).to(self.device)
             for i in range(num_steps):
                 th_ba = [inner_th_ba, outer_th_ba.detach()]
                 l1, l2, M = self.game_batched(th_ba)
@@ -295,19 +294,20 @@ class MetaGames:
 
 
 class SymmetricMetaGames:
-    def __init__(self, b, game="IPD"):
+    def __init__(self, b, device, game="IPD"):
         self.gamma_inner = 0.96
+        self.device = device
 
         self.b = b
         self.game = game
         if self.game == "IPD":
-            d, self.game_batched = ipd_batched(b, gamma_inner=self.gamma_inner)
+            d, self.game_batched = ipd_batched(b, device, gamma_inner=self.gamma_inner)
             self.std = 1
         elif self.game == "IMP":
-            d, self.game_batched = imp_batched(b, gamma_inner=self.gamma_inner)
+            d, self.game_batched = imp_batched(b, device, gamma_inner=self.gamma_inner)
             self.std = 1
         elif self.game == "chicken":
-            d, self.game_batched = chicken_game_batch(b)
+            d, self.game_batched = chicken_game_batch(b, device)
             self.std = 1
         else:
             raise NotImplementedError
@@ -315,8 +315,8 @@ class SymmetricMetaGames:
         self.d = d[0]
 
     def reset(self, info=False):
-        p_ba_0 = torch.nn.init.normal_(torch.empty((self.b, self.d)), std=self.std).to(device)
-        p_ba_1 = torch.nn.init.normal_(torch.empty((self.b, self.d)), std=self.std).to(device)
+        p_ba_0 = torch.nn.init.normal_(torch.empty((self.b, self.d)), std=self.std).to(self.device)
+        p_ba_1 = torch.nn.init.normal_(torch.empty((self.b, self.d)), std=self.std).to(self.device)
         state_0 = torch.sigmoid(torch.cat((p_ba_0.detach(), p_ba_1.detach()), dim=-1))
         state_1 = torch.sigmoid(torch.cat((p_ba_1.detach(), p_ba_0.detach()), dim=-1))
 
@@ -339,7 +339,7 @@ class SymmetricMetaGames:
 
 
 class NonMfosMetaGames:
-    def __init__(self, b, p1="NL", p2="NL", game="IPD", lr=None, mmapg_id=None):
+    def __init__(self, b, device, p1="NL", p2="NL", game="IPD", lr=None, mmapg_id=None):
         """
         Opponent can be:
         NL = Naive Learner (gradient updates through environment).
@@ -348,20 +348,21 @@ class NonMfosMetaGames:
         """
         self.gamma_inner = 0.96
         self.b = b
+        self.device = device
 
         self.p1 = p1
         self.p2 = p2
         self.game = game
         if self.game == "IPD":
-            d, self.game_batched = ipd_batched(b, gamma_inner=self.gamma_inner)
+            d, self.game_batched = ipd_batched(b, device, gamma_inner=self.gamma_inner)
             self.std = 1
             self.lr = 1
         elif self.game == "IMP":
-            d, self.game_batched = imp_batched(b, gamma_inner=self.gamma_inner)
+            d, self.game_batched = imp_batched(b, device, gamma_inner=self.gamma_inner)
             self.std = 1
             self.lr = 1
         elif self.game == "chicken":
-            d, self.game_batched = chicken_game_batch(b)
+            d, self.game_batched = chicken_game_batch(b, device)
             self.std = 1
             self.lr = 1
         else:
@@ -396,25 +397,25 @@ class NonMfosMetaGames:
                                                        device=device)
 
     def reset(self, info=False):
-        self.p1_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
-        self.p2_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
+        self.p1_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(self.device)
+        self.p2_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(self.device)
         if self.p1 == "Reciprocator":
             self.analytic_rr_p1.reset()
         if self.p2 == "Reciprocator":
             self.analytic_rr_p2.reset()
 
         if self.p1 == "MAMAML":
-            self.p1_th_ba = self.init_th_ba.detach() * torch.ones((self.b, self.d), requires_grad=True).to(device)
+            self.p1_th_ba = self.init_th_ba.detach() * torch.ones((self.b, self.d), requires_grad=True).to(self.device)
         if self.p2 == "MAMAML":
-            self.p2_th_ba = self.init_th_ba.detach() * torch.ones((self.b, self.d), requires_grad=True).to(device)
+            self.p2_th_ba = self.init_th_ba.detach() * torch.ones((self.b, self.d), requires_grad=True).to(self.device)
 
         if self.p1 == "TFT":
-            self.p1_th_ba = torch.zeros((self.b, self.d)).to(device).detach()
+            self.p1_th_ba = torch.zeros((self.b, self.d)).to(self.device).detach()
             self.p1_th_ba[:, [0, 1, 3]] = 1000000
             self.p1_th_ba[:, 2] = -1000000
             self.p1_th_ba[:, 4] = -1000000
         if self.p2 == "TFT":
-            self.p2_th_ba = torch.zeros((self.b, self.d)).to(device).detach()
+            self.p2_th_ba = torch.zeros((self.b, self.d)).to(self.device).detach()
             self.p2_th_ba[:, [0, 1, 3]] = 1000000
             self.p2_th_ba[:, 2] = -1000000
             self.p2_th_ba[:, 4] = -1000000
@@ -444,11 +445,19 @@ class NonMfosMetaGames:
             with torch.no_grad():
                 self.p1_th_ba -= grad * self.lr
         elif self.p1 == 'Reciprocator':
+<<<<<<< HEAD
             L_rr = self.analytic_rr_p1.Ls(th_ba)
             grad = get_gradient(L_rr.sum(), self.p1_th_ba)
             with torch.no_grad():
                 self.p1_th_ba -= grad * self.lr
             self.analytic_rr_p1.update_baseline(th_ba, tau=RECIPROCATOR_TAU)
+=======
+            L_rr = self.analytic_rr_p1.Ls([self.p1_th_ba, self.p2_th_ba])
+            grad = get_gradient(L_rr.sum(), self.p1_th_ba)
+            with torch.no_grad():
+                self.p1_th_ba -= grad * self.lr
+            self.analytic_rr_p1.update_baseline([self.p1_th_ba, self.p2_th_ba], tau=RECIPROCATOR_TAU)
+>>>>>>> 2e285235952d901da975df52262d0f9a59a13925
         elif self.p1 == "TFT":
             pass
         elif self.p1 == "STATIC":
@@ -469,11 +478,19 @@ class NonMfosMetaGames:
             with torch.no_grad():
                 self.p2_th_ba -= grad * self.lr
         elif self.p2 == "Reciprocator":
+<<<<<<< HEAD
             L_rr = self.analytic_rr_p2.Ls(th_ba[::-1])
             grad = get_gradient(L_rr.sum(), self.p2_th_ba)
             with torch.no_grad():
                 self.p2_th_ba -= grad * self.lr
             self.analytic_rr_p2.update_baseline(th_ba[::-1], tau=0.02)
+=======
+            L_rr = self.analytic_rr_p2.Ls([self.p2_th_ba, self.p1_th_ba])
+            grad = get_gradient(L_rr.sum(), self.p2_th_ba)
+            with torch.no_grad():
+                self.p2_th_ba -= grad * self.lr
+            self.analytic_rr_p2.update_baseline([self.p2_th_ba, self.p1_th_ba], tau=RECIPROCATOR_TAU)
+>>>>>>> 2e285235952d901da975df52262d0f9a59a13925
         elif self.p2 == "TFT":
             pass
         elif self.p2 == "STATIC":
