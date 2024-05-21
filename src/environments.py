@@ -3,13 +3,13 @@ from analytic_reciprocator import AnalyticReciprocator
 import os.path as osp
 
 RECIPROCATOR_ARGS = {
-    "rr_weight": 10.0,
+    "rr_weight": 5.0,
     "gamma": 0.96,
-    "buffer_size": 2,
-    "target_period": 1
+    "buffer_size": 5,
+    "target_period": 10
 }
 
-RECIPROCATOR_TAU = 1.0
+RECIPROCATOR_TAU = 0.02
 
 
 def ipd_batched(bs, device, gamma_inner=0.96):
