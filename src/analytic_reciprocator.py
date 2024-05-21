@@ -112,6 +112,10 @@ class AnalyticReciprocator:
         # P(s_2 | s_1), e.g. T1[0, 1] = P(CC | CD)
         S2 = torch.zeros(self.bsz, 4, 4).to(self.device)
 
+        for s_pre in range(4):
+            for s in range(4):
+                S2[:, s_pre, s] = S1[:, s_pre] * T1[:, s_pre, s]
+
         # Probability of transitioning from compound state ABCDEF to GHIJKL (s_pre, s, a) to (s, a, a_next)
         T2 = torch.zeros(self.bsz, 4, 4, 4, 4, 4, 4).to(self.device)
         for s_pre in range(4):
