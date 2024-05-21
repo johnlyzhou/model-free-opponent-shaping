@@ -75,8 +75,8 @@ def main(game, opponent, entropy, exp_name, checkpoint, mamaml_id, device):
                 print(f"EP {i_episode}, Step {t}")
                 print(f"Mean MFOS policy: {state[:, :5].mean(dim=0)}\n"
                       f"Std MFOS policy: {state[:, :5].std(dim=0)}\n")
-                print(f"Mean RR policy: {state[:, 5:].mean(dim=0)}\n"
-                      f"Std RR policy: {state[:, 5:].std(dim=0)}\n")
+                print(f"Mean {opponent} policy: {state[:, 5:].mean(dim=0)}\n"
+                      f"Std {opponent} policy: {state[:, 5:].std(dim=0)}\n")
 
             memory.rewards.append(reward)
             running_reward += reward.squeeze(-1)
