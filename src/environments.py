@@ -1,5 +1,5 @@
 import torch
-from analytic_reciprocator import AnalyticReciprocator
+from src.analytic_reciprocator import AnalyticReciprocator
 import os.path as osp
 
 RECIPROCATOR_ARGS = {
@@ -259,7 +259,7 @@ class MetaGames:
             with torch.no_grad():
                 self.inner_th_ba -= grad * self.lr
         elif self.opponent == "Reciprocator":
-            th_ba = [self.inner_th_ba, outer_th_ba.detach()]
+            th_ba = [outer_th_ba.detach(), self.inner_th_ba]
             l1, l2, M = self.game_batched(th_ba)
             L_rr = self.analytic_rr.Ls(th_ba)
             grad = get_gradient(L_rr.sum(), self.inner_th_ba)

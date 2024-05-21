@@ -38,7 +38,7 @@ if __name__ == '__main__':
     processes = [None for _ in range(len(device_list))]
 
     for mamaml_id in range(10):
-        save_dir = f"{args.exp_name}_id{mamaml_id}"
+        save_dir = f"{args.exp_name}/id{mamaml_id}"
         if not os.path.isdir(save_dir):
             os.mkdir(save_dir)
 
