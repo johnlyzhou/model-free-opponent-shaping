@@ -6,13 +6,15 @@ import multiprocessing as mp
 
 import torch
 
-from src.main_mfos_ppo import main
+from src.main_mfos_ppo import main as main_mfos_ppo
+from src.main_non_mfos import main as main_non_mfos
 
 CUDA_LIST = [torch.device(f'cuda:{i}') for i in range(torch.cuda.device_count())]
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument("--script", type=str, required=True)
     parser.add_argument("--game", type=str, required=True)
     parser.add_argument("--opponent", type=str, required=True)
     parser.add_argument("--entropy", type=float, default=0.01)
@@ -22,6 +24,13 @@ if __name__ == '__main__':
     parser.add_argument("--mamaml-id", type=int, default=0)
     parser.add_argument("--replicate", type=int, default=1)
     args = parser.parse_args()
+
+    if args.script == "mfos_ppo":
+        main = main_mfos_ppo
+    elif args.script == "non_mfos":
+        main = main_non_mfos
+    else:
+        raise ValueError(f"Unknown script: {args.script}")
 
     if not os.path.isdir(args.exp_name):
         os.mkdir(args.exp_name)
@@ -55,8 +64,10 @@ if __name__ == '__main__':
                     if not p.is_alive():
                         processes[i] = None
                 sleep(1)
-
-        process_args = (args.game, args.opponent, args.entropy, save_dir, args.checkpoint, args.mamaml_id, device)
+        if args.script == "mfos_ppo":
+            process_args = (args.game, args.opponent, args.entropy, save_dir, args.checkpoint, args.mamaml_id, device)
+        elif args.script == "non_mfos":
+            process_args = (save_dir, device)
         print(f"RUNNING NAME: {save_dir}")
         processes[device_idx] = mp.Process(target=main, args=process_args)
         processes[device_idx].start()

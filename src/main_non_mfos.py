@@ -6,23 +6,10 @@ from environments import NonMfosMetaGames
 
 from tqdm import tqdm
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--exp-name", type=str, default="")
-parser.add_argument("--device", type=str, default="cpu")
-args = parser.parse_args()
 
-if __name__ == "__main__":
-    device = torch.device(args.device)
-    batch_size = 8192
+def main(name, device):
+    batch_size = 1024
     num_steps = 100
-    name = args.exp_name
-
-    print(f"RUNNING NAME: {name}")
-    if not os.path.isdir(name):
-        os.mkdir(name)
-        with open(os.path.join(name, "commandline_args.txt"), "w") as f:
-            json.dump(args.__dict__, f, indent=2)
-
     results = []
     for game in ["IPD"]:
         for p1 in ["Reciprocator", "NL", "LOLA", "MAMAML"]:  #"Reciprocator", "NL", "LOLA"]:
@@ -80,3 +67,20 @@ if __name__ == "__main__":
                     print(f"r0: {mean_rew_0}, r1: {mean_rew_1}")
     with open(os.path.join(name, f"out.json"), "w") as f:
         json.dump(results, f)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--exp-name", type=str, default="")
+    parser.add_argument("--device", type=str, default="cpu")
+    args = parser.parse_args()
+    device = torch.device(args.device)
+    name = args.exp_name
+
+    print(f"RUNNING NAME: {name}")
+    if not os.path.isdir(name):
+        os.mkdir(name)
+        with open(os.path.join(name, "commandline_args.txt"), "w") as f:
+            json.dump(args.__dict__, f, indent=2)
+
+    main(name, device)
