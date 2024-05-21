@@ -24,8 +24,8 @@ if __name__ == "__main__":
 
     results = []
     for game in ["IPD", "chicken"]:
-        for p1 in ["Reciprocator"]:  #"Reciprocator", "NL", "LOLA"]:
-            for p2 in ["NL", "LOLA", "MAMAML"]:
+        for p1 in ["Reciprocator", "NL", "LOLA", "MAMAML"]: 
+            for p2 in ["Reciprocator", "NL", "LOLA", "MAMAML"]:
                 if p1 == "MAMAML" or p2 == "MAMAML":
                     for id in range(10):
                         print(f"Running {game} with {p1} vs. {p2}: ID {id}")
@@ -37,6 +37,7 @@ if __name__ == "__main__":
                             _, r0, r1, M = env.step()
                             running_rew_0 += r0.squeeze(-1)
                             running_rew_1 += r1.squeeze(-1)
+                            print(f"r0: {r0.mean().detach().item()}, r1: {r1.mean().detach().item()}")
                         mean_rew_0 = (running_rew_0.mean() / num_steps).item()
                         mean_rew_1 = (running_rew_1.mean() / num_steps).item()
 
@@ -68,6 +69,7 @@ if __name__ == "__main__":
                               f"Std {p2} policy: {state[:, 5:].std(dim=0)}\n")
                         running_rew_0 += r0.squeeze(-1)
                         running_rew_1 += r1.squeeze(-1)
+                        print(f"r0: {r0.mean().detach().item()}, r1: {r1.mean().detach().item()}")
                     mean_rew_0 = (running_rew_0.mean() / num_steps).item()
                     mean_rew_1 = (running_rew_1.mean() / num_steps).item()
 
