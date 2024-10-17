@@ -71,7 +71,7 @@ def main(name, device):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exp-name", type=str, default="")
+    parser.add_argument("--exp-name", type=str, default="test")
     parser.add_argument("--device", type=str, default="cpu")
     args = parser.parse_args()
     device = torch.device(args.device)
