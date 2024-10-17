@@ -2,7 +2,7 @@ import os
 import json
 import torch
 import argparse
-from environments import NonMfosMetaGames
+from src.environments import NonMfosMetaGames
 
 from tqdm import tqdm
 

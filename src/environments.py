@@ -1,5 +1,5 @@
 import torch
-from analytic_reciprocator import AnalyticReciprocator
+from src.analytic_reciprocator import AnalyticReciprocator
 import os.path as osp
 
 RECIPROCATOR_ARGS = {
