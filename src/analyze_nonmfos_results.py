@@ -55,4 +55,7 @@ if __name__ == '__main__':
         for d_processed in ds_processed:
             rews_0.append(d_processed[combo][0])
             rews_1.append(d_processed[combo][1])
-        print(combo, np.mean(rews_0), np.mean(rews_1))
+        print(combo)
+        print("Rew 0", np.around(np.mean(rews_0), 2), "+/-", np.std(rews_0) / np.sqrt(len(rews_0)))
+        print("Rew 1", np.around(np.mean(rews_1), 2), "+/-", np.std(rews_1) / np.sqrt(len(rews_1)))
+
