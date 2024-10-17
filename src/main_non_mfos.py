@@ -8,12 +8,12 @@ from tqdm import tqdm
 
 
 def main(name, device):
-    batch_size = 1024
+    batch_size = 8192
     num_steps = 100
     results = []
     for game in ["IPD"]:
-        for p1 in ["Reciprocator", "NL", "LOLA", "MAMAML"]:  #"Reciprocator", "NL", "LOLA"]:
-            for p2 in ["Reciprocator", "NL", "LOLA", "MAMAML"]:
+        for p1 in ["Reciprocator"]:  #"Reciprocator", "NL", "LOLA"]:
+            for p2 in ["Reciprocator"]:
                 if p1 == "MAMAML" or p2 == "MAMAML":
                     for id in range(10):
                         print(f"Running {game} with {p1} vs. {p2}: ID {id}")
@@ -71,7 +71,7 @@ def main(name, device):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exp-name", type=str, default="")
+    parser.add_argument("--exp-name", type=str, default="test")
     parser.add_argument("--device", type=str, default="cpu")
     args = parser.parse_args()
     device = torch.device(args.device)

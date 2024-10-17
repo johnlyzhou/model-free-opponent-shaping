@@ -71,17 +71,14 @@ class AnalyticReciprocator:
             self.opponent_baseline_policy = target_opponent_baseline_policy * tau + self.opponent_baseline_policy * (
                         1. - tau)
             self.init_full_rewards()
-        # print(torch.sigmoid(th[0][0]))
-        # print(torch.sigmoid(th[1][0]))
-        # print("RR policy")
-        # print(torch.sigmoid(torch.max(th[0], dim=0)[0]), torch.sigmoid(torch.max(th[0], dim=0)[0]))
-        # print(torch.sigmoid(torch.max(th[0], dim=0)[0]), torch.sigmoid(torch.max(th[0], dim=0)[0]))
-        # print("MFOS policy")
-        # print(torch.sigmoid(torch.max(th[1], dim=0)[0]), torch.sigmoid(torch.max(th[1], dim=0)[0]))
-        # print(torch.sigmoid(torch.min(th[1], dim=0)[0]), torch.sigmoid(torch.min(th[1], dim=0)[0]))
-        # print("RR COMPONENTS")
-        # print(self.grudge[0])
-        # print(self.voi_on_other[0])
+        print("UPDATING BASELINE")
+        print("RR policy and new baseline")
+        print(torch.sigmoid(th[0][0]), "\n", self.own_baseline_policy[0])
+        print("Opponent policy and new baseline")
+        print(torch.sigmoid(th[1][0]), "\n", self.opponent_baseline_policy[0])
+        print("RR COMPONENTS")
+        print(self.grudge[0])
+        print(self.voi_on_other[0])
 
     def Ls(self, th):
         """
@@ -93,9 +90,10 @@ class AnalyticReciprocator:
         p0_init = torch.sigmoid(th[0][:, 0:1])
         p1_init = torch.sigmoid(th[1][:, 0:1])
 
-        # Remove initial state from policy
+        # Remove initial state from policy P(C | CC, CD, DC, DD)
         p0 = torch.sigmoid(th[0][:, 1:]).view(self.bsz, 4, 1)
         # Permute agent 1's egocentric policy (i.e. its state is flipped) to match agent 0's perspective
+        #  P(C | CC, CD, DC, DD) for opponent is -> P(C | CC, DC, CD, DD), so need to flip 2 and 3
         p1 = torch.sigmoid(th[1][:, torch.LongTensor([1, 3, 2, 4]).to(self.device)]).view(self.bsz, 4, 1)
 
         # TODO: Compute initial state vector
@@ -109,6 +107,7 @@ class AnalyticReciprocator:
         # Probability of transitioning to each state CD from the current state AB - this is independent since memory-1
         #  equal to p(a_t | s_t), since a_t = s_t+1
         T1 = torch.cat([p0 * p1, p0 * (1 - p1), (1 - p0) * p1, (1 - p0) * (1 - p1)], dim=-1)  # (bsz, 4, 4)
+        print("T1", T1.shape)
         # P(s_2 | s_1), e.g. T1[0, 1] = P(CC | CD)
         S2 = torch.zeros(self.bsz, 4, 4).to(self.device)
 
@@ -129,7 +128,7 @@ class AnalyticReciprocator:
         T2 = T2.view(self.bsz, 64, 64)
         M = torch.matmul(S3.unsqueeze(1), torch.inverse(torch.eye(64).to(self.device) - self.gamma * T2))
         L_rr = -torch.matmul(M, torch.reshape(self.full_rewards, (self.bsz, 64, 1)).detach())
-        return L_rr.squeeze(-1)
+        return L_rr.squeeze(-1), T1, S1
 
     def state_to_choices(self, s: int) -> str:
         choices = ['C', 'D']
@@ -154,9 +153,9 @@ class AnalyticReciprocator:
                              self.extrinsic_rewards[s_state[0], 1] * (1 - baseline_probs))
         self.grudge[:, s_pre, s] = last_expected_rew - last_rew  # essentially just VoI on self for 1-step memory
         if verbose:
-            # print(f"OPP BASELINE P(C | {self.state_to_choices(s_pre)}):", baseline_probs[0])
-            # print(f"ACTUAL REWARD R({self.state_to_choices(s)} | {self.state_to_choices(s_pre)}):", last_rew,
-            #       f"EXPECTED REW FOR SELF R({self.state_to_choices(s)[0]}X | {self.state_to_choices(s_pre)}):", last_expected_rew[0])
+            print(f"OPP BASELINE P(C | {self.state_to_choices(s_pre)}):", baseline_probs[0])
+            print(f"ACTUAL REWARD R({self.state_to_choices(s)} | {self.state_to_choices(s_pre)}):", last_rew,
+                  f"EXPECTED REW FOR SELF R({self.state_to_choices(s)[0]}X | {self.state_to_choices(s_pre)}):", last_expected_rew[0])
             print("GRUDGE:", self.grudge[0, s_pre, s])
 
         # Compute VoI on other
@@ -179,9 +178,9 @@ class AnalyticReciprocator:
             for s in range(4):
                 for a in range(4):
                     self.init_rr_components(s_pre, s, a)
-        # print("GRUDGE")
-        # print(self.grudge.max(), self.grudge.min())
-        # print(self.voi_on_other.max(), self.voi_on_other.min())
+        print("GRUDGE")
+        print(self.grudge.max(), self.grudge.min())
+        print(self.voi_on_other.max(), self.voi_on_other.min())
         for s_pre in range(4):
             for s in range(4):
                 for a in range(4):

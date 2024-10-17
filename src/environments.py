@@ -1,9 +1,9 @@
 import torch
-from src.analytic_reciprocator import AnalyticReciprocator
+from analytic_reciprocator import AnalyticReciprocator
 import os.path as osp
 
 RECIPROCATOR_ARGS = {
-    "rr_weight": 5.0,
+    "rr_weight": 5.,
     "gamma": 0.96,
     "buffer_size": 5,
     "target_period": 10
@@ -24,14 +24,20 @@ def ipd_batched(bs, device, gamma_inner=0.96):
         p_2_0 = torch.sigmoid(th[1][:, 0:1])
         p = torch.cat([p_1_0 * p_2_0, p_1_0 * (1 - p_2_0), (1 - p_1_0) * p_2_0, (1 - p_1_0) * (1 - p_2_0)], dim=-1)
         p_1 = torch.reshape(torch.sigmoid(th[0][:, 1:5]), (bs, 4, 1))
+        p0 = torch.sigmoid(th[0][:, 1:]).view(bs, 4, 1)
+        p1 = torch.sigmoid(th[1][:, torch.LongTensor([1, 3, 2, 4])]).view(bs, 4, 1)
         p_2 = torch.reshape(torch.sigmoid(torch.cat([th[1][:, 1:2], th[1][:, 3:4], th[1][:, 2:3], th[1][:, 4:5]], dim=-1)), (bs, 4, 1))
+        assert torch.all(p0 == p_1)
+        assert torch.all(p1 == p_2)
+        print("ASSERT")
         P = torch.cat([p_1 * p_2, p_1 * (1 - p_2), (1 - p_1) * p_2, (1 - p_1) * (1 - p_2)], dim=-1)  # (bs, 4, 4)
+        print("PEEE", P.shape)
 
         M = torch.matmul(p.unsqueeze(1), torch.inverse(torch.eye(4).to(device) - gamma_inner * P))
         L_1 = -torch.matmul(M, torch.reshape(payout_mat_1, (bs, 4, 1)))
         L_2 = -torch.matmul(M, torch.reshape(payout_mat_2, (bs, 4, 1)))
 
-        return [L_1.squeeze(-1), L_2.squeeze(-1), M]
+        return [L_1.squeeze(-1), L_2.squeeze(-1), M, P, p]
 
     return dims, Ls
 
@@ -259,7 +265,7 @@ class MetaGames:
             with torch.no_grad():
                 self.inner_th_ba -= grad * self.lr
         elif self.opponent == "Reciprocator":
-            th_ba = [outer_th_ba.detach(), self.inner_th_ba]
+            th_ba = [self.inner_th_ba, outer_th_ba.detach()]
             l1, l2, M = self.game_batched(th_ba)
             L_rr = self.analytic_rr.Ls(th_ba)
             grad = get_gradient(L_rr.sum(), self.inner_th_ba)
@@ -429,8 +435,8 @@ class NonMfosMetaGames:
     def step(self, info=False):
         last_p1_th_ba = self.p1_th_ba.clone()
         last_p2_th_ba = self.p2_th_ba.clone()
-        th_ba = [self.p2_th_ba, self.p1_th_ba]
-        l1, l2, M = self.game_batched(th_ba)
+        th_ba = [self.p2_th_ba, self.p1_th_ba]  # TODO: WHY???
+        l1, l2, M, P, p = self.game_batched(th_ba)
 
         # UPDATE P1
         if self.p1 == "NL" or self.p1 == "MAMAML":
@@ -445,11 +451,15 @@ class NonMfosMetaGames:
             with torch.no_grad():
                 self.p1_th_ba -= grad * self.lr
         elif self.p1 == 'Reciprocator':
-            L_rr = self.analytic_rr_p1.Ls(th_ba)
+            L_rr, T1, S1 = self.analytic_rr_p1.Ls(th_ba)  # TODO: WHY NOT SWITCH
+            print(P[0])
+            print(T1[0])
+            assert torch.all(P == T1)
+            assert torch.all(p == S1)
             grad = get_gradient(L_rr.sum(), self.p1_th_ba)
             with torch.no_grad():
                 self.p1_th_ba -= grad * self.lr
-            self.analytic_rr_p1.update_baseline(th_ba[::-1], tau=RECIPROCATOR_TAU)
+            self.analytic_rr_p1.update_baseline(th_ba[::-1], tau=RECIPROCATOR_TAU)  # TODO: BUT BASELINES GOOD
         elif self.p1 == "TFT":
             pass
         elif self.p1 == "STATIC":
@@ -470,7 +480,7 @@ class NonMfosMetaGames:
             with torch.no_grad():
                 self.p2_th_ba -= grad * self.lr
         elif self.p2 == "Reciprocator":
-            L_rr = self.analytic_rr_p2.Ls(th_ba[:: -1])
+            L_rr, _, _ = self.analytic_rr_p2.Ls(th_ba[::-1])  # TODO: WHY NOT SWITCH
             grad = get_gradient(L_rr.sum(), self.p2_th_ba)
             with torch.no_grad():
                 self.p2_th_ba -= grad * self.lr
