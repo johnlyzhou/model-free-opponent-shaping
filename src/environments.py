@@ -383,8 +383,6 @@ class NonMfosMetaGames:
             self.init_th_ba = torch.load(f).to(device)
             print(self.init_th_ba)
 
-        if self.p1 == "Reciprcator" and self.p2 == "Reciprocator":
-            raise NotImplementedError
         if self.p1 == "Reciprocator":
             self.analytic_rr_p1 = AnalyticReciprocator(**RECIPROCATOR_ARGS,
                                                        game=self.game,
