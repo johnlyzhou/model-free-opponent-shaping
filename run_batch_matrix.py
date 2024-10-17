@@ -51,6 +51,7 @@ if __name__ == '__main__':
 
     for rep_id in range(args.replicate):
         save_dir = f"{args.exp_name}/id_{rep_id}"
+        torch.manual_seed(rep_id)
         if not os.path.isdir(save_dir):
             os.mkdir(save_dir)
 
